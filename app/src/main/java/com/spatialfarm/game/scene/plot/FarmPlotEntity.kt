@@ -28,7 +28,10 @@ import kotlinx.coroutines.launch
  *
  * 生长速度：1 游戏日 = [GROW_SECONDS_PER_DAY] 秒（演示加速版）。
  */
-class FarmPlotEntity(private val index: Int) : Entity() {
+class FarmPlotEntity(
+    private val index: Int,
+    locked: Boolean = false,
+) : Entity() {
 
     private val scope = CoroutineScope(Dispatchers.Main)
 
@@ -38,6 +41,8 @@ class FarmPlotEntity(private val index: Int) : Entity() {
     private var quality = 0               // 照料品质 0..100（M2-4 卖价乘数）
     private var plantRoot: Entity? = null
     private var generation = 0            // 防止异步加载竞态
+    private var locked = locked           // 未购买的荒地
+    private var soilChild: ModelEntity? = null
 
     init {
         setUp()
@@ -46,10 +51,11 @@ class FarmPlotEntity(private val index: Int) : Entity() {
     private fun setUp() {
         setName("plot_$index")
 
-        // 土壤
-        val soil = ModelEntity(soilMesh(), soilMaterial())
+        // 土壤（荒地为草绿色，购入后变棕色田垄）
+        val soil = ModelEntity(soilMesh(), if (locked) grassMaterial() else soilMaterial())
         soil.setName("plot_${index}_soil")
         soil.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, PLOT_T / 2f, 0f))
+        soilChild = soil
         addChild(soil)
 
         // 交互：碰撞盒 + 可交互 + 悬停高亮
@@ -70,8 +76,24 @@ class FarmPlotEntity(private val index: Int) : Entity() {
         }
     }
 
+    /** 购买后开垦：荒地变良田。 */
+    fun unlock() {
+        if (!locked) return
+        locked = false
+        soilChild?.destroy(true)
+        val soil = ModelEntity(soilMesh(), soilMaterial())
+        soil.setName("plot_${index}_soil")
+        soil.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, PLOT_T / 2f, 0f))
+        soilChild = soil
+        addChild(soil)
+    }
+
     /** 用户点按田垄。 */
     fun onTap() {
+        if (locked) {
+            GameState.postHint("这块地还是荒地，先点「🪴 扩田」购买")
+            return
+        }
         val p = plant
         if (p == null) {
             plantFromSelection()
@@ -189,6 +211,7 @@ class FarmPlotEntity(private val index: Int) : Entity() {
 
         var sharedSoilMesh: MeshResource? = null
         var sharedSoilMat: UnlitMaterial? = null
+        var sharedGrassMat: UnlitMaterial? = null
 
         fun soilMesh(): MeshResource =
             sharedSoilMesh ?: MeshResource.createBox(
@@ -201,6 +224,11 @@ class FarmPlotEntity(private val index: Int) : Entity() {
             sharedSoilMat ?: UnlitMaterial.create().apply {
                 setBaseColor(Color4(0.60f, 0.45f, 0.34f, 1f))
             }.also { sharedSoilMat = it }
+
+        fun grassMaterial(): UnlitMaterial =
+            sharedGrassMat ?: UnlitMaterial.create().apply {
+                setBaseColor(Color4(0.66f, 0.80f, 0.55f, 1f))
+            }.also { sharedGrassMat = it }
 
         /** 各作物的显示缩放（模型原始尺寸不同）。 */
         fun cropScale(p: PlantDef): Float =

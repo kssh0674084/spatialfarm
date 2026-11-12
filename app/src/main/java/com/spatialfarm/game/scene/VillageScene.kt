@@ -15,6 +15,7 @@ import com.pico.spatial.core.ecs.resource.UnlitMaterial
 import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
+import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -103,12 +104,14 @@ class VillageEntity : Entity() {
     private fun buildFarmPlots() {
         val group = Entity()
         group.setName("farm_plots")
-        group.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0f, PLOT_Z))
 
-        for (i in 0 until 2) {
-            val x = -PLOT_GAP / 2f + i * PLOT_GAP
-            val plot = FarmPlotEntity(i)
-            plot.components[TransformComponent::class.java]!!.setPosition(Vector3(x, 0f, 0f))
+        for (i in 0 until MAX_PLOTS) {
+            val col = i % 4
+            val row = i / 4
+            val x = COL_XS[col]
+            val z = PLOT_ROW_Z0 - row * ROW_GAP
+            val plot = FarmPlotEntity(i, locked = i >= GameState.plotsOwned)
+            plot.components[TransformComponent::class.java]!!.setPosition(Vector3(x, 0f, z))
             plots.add(plot)
             group.addChild(plot)
         }
@@ -170,20 +173,20 @@ class VillageEntity : Entity() {
         fence.setName("plot_fence")
         val railMat = mat("wood", WOOD)
 
+        val halfW = 4.25f
+        val halfD = 1.5f
+        val centerZ = (PLOT_ROW_Z0 + (PLOT_ROW_Z0 - ROW_GAP)) / 2f
         val railMeshX = MeshResource.createBox(
-            BoxOption(Vector3(3.9f, 0.055f, 0.055f)).setCornerRadius(0.02f).setName("rail_x")
+            BoxOption(Vector3(halfW * 2 + 0.25f, 0.055f, 0.055f)).setCornerRadius(0.02f).setName("rail_x")
         )
         val railMeshZ = MeshResource.createBox(
-            BoxOption(Vector3(1.55f, 0.055f, 0.055f)).setCornerRadius(0.02f).setName("rail_z")
+            BoxOption(Vector3(halfD * 2 + 0.1f, 0.055f, 0.055f)).setCornerRadius(0.02f).setName("rail_z")
         )
         val postMesh = MeshResource.createBox(
             BoxOption(Vector3(0.085f, 0.4f, 0.085f)).setCornerRadius(0.02f).setName("fence_post")
         )
-        val halfW = 1.95f
-        val halfD = 0.78f
         val railY = 0.3f
 
-        // 四条横栏
         fun rail(mesh: MeshResource, pos: Vector3, yaw: Float) {
             val e = ModelEntity(mesh, railMat)
             e.setName("rail")
@@ -193,12 +196,11 @@ class VillageEntity : Entity() {
             }
             fence.addChild(e)
         }
-        rail(railMeshX, Vector3(0f, railY, PLOT_Z - halfD), 0f)
-        rail(railMeshX, Vector3(0f, railY, PLOT_Z + halfD), 0f)
-        rail(railMeshZ, Vector3(-halfW, railY, PLOT_Z), 90f)
-        rail(railMeshZ, Vector3(halfW, railY, PLOT_Z), 90f)
+        rail(railMeshX, Vector3(0f, railY, centerZ - halfD), 0f)
+        rail(railMeshX, Vector3(0f, railY, centerZ + halfD), 0f)
+        rail(railMeshZ, Vector3(-halfW, railY, centerZ), 90f)
+        rail(railMeshZ, Vector3(halfW, railY, centerZ), 90f)
 
-        // 立柱
         var n = 0
         fun post(x: Float, z: Float) {
             val e = ModelEntity(postMesh, railMat)
@@ -208,10 +210,10 @@ class VillageEntity : Entity() {
             n++
         }
         for ((x, z) in listOf(
-            -halfW to PLOT_Z - halfD, -halfW / 2 to PLOT_Z - halfD, 0f to PLOT_Z - halfD,
-            halfW / 2 to PLOT_Z - halfD, halfW to PLOT_Z - halfD,
-            -halfW to PLOT_Z + halfD, 0f to PLOT_Z + halfD, halfW to PLOT_Z + halfD,
-            -halfW to PLOT_Z, halfW to PLOT_Z,
+            -halfW to centerZ - halfD, -halfW / 4 to centerZ - halfD,
+            0f to centerZ - halfD, halfW / 4 to centerZ - halfD, halfW to centerZ - halfD,
+            -halfW to centerZ + halfD, 0f to centerZ + halfD, halfW to centerZ + halfD,
+            -halfW to centerZ, halfW to centerZ,
         )) post(x, z)
 
         addChild(fence)
@@ -287,12 +289,11 @@ class VillageEntity : Entity() {
 
     private companion object {
         // ---- 尺寸与布局常量（米） ----
-        const val PLOT_W = 1.3f
-        const val PLOT_T = 0.22f
-        const val PLOT_D = 0.9f
-        const val PLOT_GAP = 2.0f
-        const val PLOT_Z = -2.4f
-        const val SIGN_X = 2.3f
+        const val MAX_PLOTS = 8
+        const val PLOT_GAP = 1.9f
+        const val PLOT_ROW_Z0 = -2.0f
+        const val ROW_GAP = 1.35f
+        val COL_XS = floatArrayOf(-2.85f, -0.95f, 0.95f, 2.85f)
 
         // ---- 粉彩调色板（保留几何体用） ----
         val SOIL = Color4(0.60f, 0.45f, 0.34f, 1f)       // 田垄棕

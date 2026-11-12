@@ -35,7 +35,7 @@ object TerrainMesh {
     /** 压平区（世界坐标圆盘）：中心 + 半径。区内高度平滑过渡到 0。 */
     private val FLAT_ZONES = listOf(
         FlatZone(0.0f, 0.6f, 2.2f),      // 用户站立区
-        FlatZone(0.0f, -2.4f, 2.5f),     // 田垄区
+        FlatZone(0.0f, -2.7f, 5.0f),     // 田垄区（8 块田 2×4）
         FlatZone(0.0f, -6.2f, 4.4f),     // 小镇主街
         FlatZone(-4.2f, -1.2f, 2.6f),    // 玩家小屋
         FlatZone(5.6f, -2.2f, 2.4f),     // 码头

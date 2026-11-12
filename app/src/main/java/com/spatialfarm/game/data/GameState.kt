@@ -15,6 +15,33 @@ object GameState {
     var wallet by mutableIntStateOf(5000)
         private set
 
+    /** 已拥有田块数（初始 2 块免费） */
+    var plotsOwned by mutableIntStateOf(2)
+        private set
+
+    /** 扩田价格阶梯（第 3 块起） */
+    private val PLOT_PRICES = listOf(1000, 2000, 4000, 8000, 16000, 32000)
+
+    /** 下一块田价格，全买完返回 null */
+    fun nextPlotPrice(): Int? = PLOT_PRICES.getOrNull(plotsOwned - 2)
+
+    /** 购买下一块田：成功返回新田序号（从 0 起），失败返回 null */
+    fun buyNextPlot(): Int? {
+        val price = nextPlotPrice() ?: run {
+            hint = "所有田地都买齐啦！🏆"
+            return null
+        }
+        if (wallet < price) {
+            hint = "扩田要 ¥$price，钱还不够，多种点菜吧 💰"
+            return null
+        }
+        wallet -= price
+        val idx = plotsOwned
+        plotsOwned++
+        hint = "买下第 $plotsOwned 块田！荒地变良田 🎉"
+        return idx
+    }
+
     /** 背包种子：plantId -> 持有数量 */
     val seeds = mutableStateMapOf<String, Int>()
 

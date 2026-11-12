@@ -159,6 +159,19 @@ fun HomeStage() {
                             ) {
                                 Text(text = "👆 照料", fontSize = 30.sp)
                             }
+                            // 扩田（价格阶梯，买下后荒地变良田）
+                            GameState.nextPlotPrice()?.let { price ->
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Button(
+                                    onClick = {
+                                        GameState.buyNextPlot()?.let { idx ->
+                                            sceneHolder.village?.plots?.getOrNull(idx)?.unlock()
+                                        }
+                                    }
+                                ) {
+                                    Text(text = "🪴 扩田 ¥$price", fontSize = 28.sp)
+                                }
+                            }
                         }
 
                         // 种子快捷栏：点选种子 → 点田垄播种
