@@ -19,6 +19,7 @@ import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.scene.audio.Sfx
 import com.spatialfarm.game.scene.neighbor.LaoWangEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
+import com.spatialfarm.game.scene.props.QuestBoardEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -65,9 +66,19 @@ class VillageEntity : Entity() {
         buildSign()
         buildDock()
         buildLaoWang()
+        buildQuestBoard()
         buildAmbience()
         // 3D 模型异步加载（不阻塞首帧）
         ioScope.launch { loadModels() }
+    }
+
+    // ---------------------------------------------------------------- 广场委托板
+
+    private fun buildQuestBoard() {
+        val board = QuestBoardEntity()
+        board.components[TransformComponent::class.java]!!.setPosition(Vector3(2.0f, 0f, -4.15f))
+        board.components[TransformComponent::class.java]!!.setEulerAngles(EulerAngles(0f, -158f, 0f))
+        addChild(board)
     }
 
     // ---------------------------------------------------------------- 环境音（鸟鸣来自树林方向）

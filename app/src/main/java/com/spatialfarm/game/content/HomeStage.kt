@@ -35,8 +35,10 @@ import com.spatialfarm.game.data.plantById
 import com.spatialfarm.game.scene.VillageEntity
 import com.spatialfarm.game.scene.neighbor.StealSpotEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
+import com.spatialfarm.game.scene.props.QuestBoardEntity
 import com.spatialfarm.game.window.WINDOW_ID_ALMANAC
 import com.spatialfarm.game.window.WINDOW_ID_BUYER
+import com.spatialfarm.game.window.WINDOW_ID_QUESTS
 import com.spatialfarm.game.window.WINDOW_ID_SEED_SHOP
 import com.spatialfarm.game.window.WINDOW_ID_TOOLSHOP
 
@@ -51,6 +53,7 @@ private class SceneHolder {
 @Composable
 fun HomeStage() {
     val context = LocalContext.current
+    val navigator = LocalSpatialNavigator.current
     // 场景生命周期管理：离开组合时销毁村庄，防止重复加载导致内存膨胀
     val sceneHolder = remember { SceneHolder() }
     DisposableEffect(Unit) {
@@ -75,6 +78,10 @@ fun HomeStage() {
                         }
                         if (e is StealSpotEntity) {
                             e.onTap()
+                            break
+                        }
+                        if (e is QuestBoardEntity) {
+                            navigator.openWindowContainer(WINDOW_ID_QUESTS)
                             break
                         }
                         e = e.getParent()
@@ -122,7 +129,7 @@ fun HomeStage() {
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         )
 
-                        // 钱包 / 收成 / 商店
+                        // 第一行：钱包 / 收成
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(top = 18.dp),
@@ -138,31 +145,49 @@ fun HomeStage() {
                                 color = PicoTheme.colorScheme.labelPrimary,
                                 style = PicoTheme.typography.titleMedium.copy(fontSize = 36.sp),
                             )
-                            Spacer(modifier = Modifier.width(20.dp))
+                        }
+
+                        // 第二行：功能窗口
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 10.dp),
+                        ) {
                             Button(
                                 onClick = { navigator.openWindowContainer(WINDOW_ID_SEED_SHOP) }
                             ) {
-                                Text(text = "🏪 种子", fontSize = 30.sp)
+                                Text(text = "🏪 种子", fontSize = 28.sp)
                             }
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Button(
                                 onClick = { navigator.openWindowContainer(WINDOW_ID_BUYER) }
                             ) {
-                                Text(text = "🧺 卖菜", fontSize = 30.sp)
+                                Text(text = "🧺 卖菜", fontSize = 28.sp)
                             }
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Button(
                                 onClick = { navigator.openWindowContainer(WINDOW_ID_ALMANAC) }
                             ) {
-                                Text(text = "📕 图鉴", fontSize = 30.sp)
+                                Text(text = "📕 图鉴", fontSize = 28.sp)
                             }
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Button(
                                 onClick = { navigator.openWindowContainer(WINDOW_ID_TOOLSHOP) }
                             ) {
-                                Text(text = "🛠️ 工具", fontSize = 30.sp)
+                                Text(text = "🛠️ 工具", fontSize = 28.sp)
                             }
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = { navigator.openWindowContainer(WINDOW_ID_QUESTS) }
+                            ) {
+                                Text(text = "📋 委托", fontSize = 28.sp)
+                            }
+                        }
+
+                        // 第三行：田地操作
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 10.dp),
+                        ) {
                             // 一键照料：有作物→浇水/收获，空地→播种（点按困难时的无障碍替代）
                             Button(
                                 onClick = {
@@ -173,11 +198,11 @@ fun HomeStage() {
                                     target?.onTap()
                                 }
                             ) {
-                                Text(text = "👆 照料", fontSize = 30.sp)
+                                Text(text = "👆 照料", fontSize = 28.sp)
                             }
                             // 扩田（价格阶梯，买下后荒地变良田）
                             GameState.nextPlotPrice()?.let { price ->
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Button(
                                     onClick = {
                                         GameState.buyNextPlot()?.let { idx ->
@@ -185,7 +210,7 @@ fun HomeStage() {
                                         }
                                     }
                                 ) {
-                                    Text(text = "🪴 扩田 ¥$price", fontSize = 28.sp)
+                                    Text(text = "🪴 扩田 ¥$price", fontSize = 26.sp)
                                 }
                             }
                         }

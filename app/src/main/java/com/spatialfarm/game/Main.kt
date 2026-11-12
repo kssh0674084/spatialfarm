@@ -4,10 +4,12 @@ import androidx.compose.ui.unit.dp
 import com.spatialfarm.game.content.HomeStage
 import com.spatialfarm.game.window.AlmanacWindow
 import com.spatialfarm.game.window.BuyerStandWindow
+import com.spatialfarm.game.window.QuestBoardWindow
 import com.spatialfarm.game.window.SeedShopWindow
 import com.spatialfarm.game.window.ToolShopWindow
 import com.spatialfarm.game.window.WINDOW_ID_ALMANAC
 import com.spatialfarm.game.window.WINDOW_ID_BUYER
+import com.spatialfarm.game.window.WINDOW_ID_QUESTS
 import com.spatialfarm.game.window.WINDOW_ID_SEED_SHOP
 import com.spatialfarm.game.window.WINDOW_ID_TOOLSHOP
 import com.pico.spatial.ui.design.PicoTheme
@@ -59,5 +61,14 @@ fun mainApp(scope: SpatialAppScope) =
             defaultSize = WindowContainerSize(width = 880.dp, height = 560.dp),
         ) {
             ToolShopWindow()
+        }
+
+        // 窗口 E：广场委托板
+        WindowContainer(
+            id = WINDOW_ID_QUESTS,
+            form = Form.Planar,
+            defaultSize = WindowContainerSize(width = 880.dp, height = 600.dp),
+        ) {
+            QuestBoardWindow()
         }
     }

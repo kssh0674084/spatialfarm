@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** 田垄快照（存档用） */
@@ -78,13 +79,20 @@ object GameState {
             )
         }
         json.put("plots", plotsJson)
+
+        // 每日委托：日期 + 已完成 id
+        json.put("questDate", Quests.questDate)
+        val doneArr = JSONArray()
+        Quests.today.filter { it.done }.forEach { doneArr.put(it.id) }
+        json.put("questDone", doneArr)
+
         SaveStore.write(json)
     }
 
     /** 从存档恢复（启动时调用一次） */
     private fun restore() {
-        val json = SaveStore.read() ?: return
-        runCatching {
+        val json = SaveStore.read()
+        if (json != null) runCatching {
             wallet = json.optInt("wallet", 5000)
             plotsOwned = json.optInt("plotsOwned", 2)
             hasSprinkler = json.optBoolean("sprinkler", false)
@@ -93,7 +101,7 @@ object GameState {
             theftCount = json.optInt("theft", 0)
             playerStealCount = json.optInt("playerSteal", 0)
             val sel = json.optString("selected", "")
-            selectedSeedId = sel.ifEmpty { null }
+            selectedSeedId = if (sel.isEmpty() || sel == "null") null else sel
 
             fun jsonToMap(o: JSONObject?): Map<String, Int> {
                 if (o == null) return emptyMap()
@@ -118,6 +126,17 @@ object GameState {
                 }
             }
             hint = "欢迎回来！进度已恢复 🌱"
+        }
+
+        // 每日委托：生成当天列表（无存档也生成），并恢复完成标记
+        Quests.ensureToday()
+        if (json != null && json.optString("questDate", "") == Quests.questDate) {
+            json.optJSONArray("questDone")?.let { doneArr ->
+                for (i in 0 until doneArr.length()) {
+                    val id = doneArr.optString(i)
+                    Quests.today.find { it.id == id }?.done = true
+                }
+            }
         }
     }
 
