@@ -236,7 +236,7 @@ fun HomeStage() {
                                     target?.onTap()
                                 }
                             ) {
-                                Text(text = "👆 照料", fontSize = 28.sp)
+                                Text(text = "🌱 一键照料", fontSize = 26.sp)
                             }
                             // 扩田（价格阶梯，买下后荒地变良田）
                             GameState.nextPlotPrice()?.let { price ->
@@ -269,6 +269,28 @@ fun HomeStage() {
                                 }
                             ) {
                                 Text(text = "🧒 孩子", fontSize = 26.sp)
+                            }
+                        }
+
+                        // 田垄状态栏（一眼看清田里有什么）
+                        run {
+                            GameState.plotRevision // 订阅刷新
+                            val v = sceneHolder.village
+                            if (v != null) {
+                                val line = v.plots.take(GameState.plotsOwned).mapIndexed { i, plot ->
+                                    when (val st = plot.cropState()) {
+                                        0 -> "田${i + 1}·空地"
+                                        5 -> "田${i + 1}·✅成熟"
+                                        else -> "田${i + 1}·🌱${st}/4"
+                                    }
+                                }.joinToString("  ")
+                                Text(
+                                    text = "🌾 $line",
+                                    color = PicoTheme.colorScheme.labelPrimary,
+                                    style = PicoTheme.typography.bodyMedium.copy(fontSize = 24.sp),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                )
                             }
                         }
 

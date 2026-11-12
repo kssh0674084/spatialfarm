@@ -22,6 +22,10 @@ data class PlotSnapshot(
  * 存档：SharedPreferences JSON（M4-2），周期自动保存。
  */
 object GameState {
+    /** 田垄状态刷新信号（HUD 状态栏重绘用） */
+    var plotRevision by mutableIntStateOf(0)
+        private set
+
     /** 田垄快照：plotIndex -> 状态（由 FarmPlotEntity 写入，存档与恢复用） */
     val plotSnapshots = mutableMapOf<Int, PlotSnapshot>()
 
@@ -40,6 +44,7 @@ object GameState {
 
     /** 记录一块田的状态快照 */
     fun snapshotPlot(index: Int, plantId: String?, stage: Int, stageProgress: Float, quality: Int) {
+        plotRevision++
         if (plantId == null) {
             plotSnapshots.remove(index)
         } else {
