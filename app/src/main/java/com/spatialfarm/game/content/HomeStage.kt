@@ -2,8 +2,11 @@ package com.spatialfarm.game.content
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,12 +17,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pico.spatial.core.ecs.TransformComponent
 import com.pico.spatial.core.math.Vector3
+import com.pico.spatial.ui.design.Button
 import com.pico.spatial.ui.design.PicoTheme
 import com.pico.spatial.ui.design.Text
 import com.pico.spatial.ui.foundation.content.SpatialView
 import com.pico.spatial.ui.foundation.material.backgroundMaterial
 import com.pico.spatial.ui.platform.Material
+import com.pico.spatial.ui.platform.containers.LocalSpatialNavigator
+import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.scene.VillageEntity
+import com.spatialfarm.game.window.WINDOW_ID_SEED_SHOP
 
 /**
  * 主场景：把村口小院（旷野之息风格草原）挂进 Stage，
@@ -42,6 +49,7 @@ fun HomeStage() {
         },
         attachments = {
             AttachmentPanel(id = "title") {
+                val navigator = LocalSpatialNavigator.current
                 Box(
                     modifier =
                         Modifier
@@ -67,6 +75,23 @@ fun HomeStage() {
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         )
+                        // HUD：钱包 + 打开种子商店
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 20.dp),
+                        ) {
+                            Text(
+                                text = "💰 ¥${GameState.wallet}",
+                                color = PicoTheme.colorScheme.labelPrimary,
+                                style = PicoTheme.typography.titleMedium.copy(fontSize = 40.sp),
+                            )
+                            Spacer(modifier = Modifier.width(24.dp))
+                            Button(
+                                onClick = { navigator.openWindowContainer(WINDOW_ID_SEED_SHOP) }
+                            ) {
+                                Text(text = "🏪 种子商店", fontSize = 32.sp)
+                            }
+                        }
                     }
                 }
             }
