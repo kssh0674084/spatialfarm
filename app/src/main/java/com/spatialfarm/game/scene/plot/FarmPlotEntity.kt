@@ -16,6 +16,7 @@ import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.data.PlantDef
 import com.spatialfarm.game.scene.audio.Sfx
+import com.spatialfarm.game.scene.fx.Burst
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -204,12 +205,14 @@ class FarmPlotEntity(
         val fertTag = if (fertilized) " 🌱施肥" else ""
         snapshot()
         Sfx.playWater(this)
+        Burst.splash(this, Vector3(0f, PLOT_T + 0.15f, 0f))
         GameState.postHint("浇水 💧 ${p.emoji}${p.name} 品质 $quality$fertTag")
     }
 
     private fun harvest(p: PlantDef) {
         val bonus = if (quality >= 60) 1 else 0
         Sfx.playHarvest(this)
+        Burst.sparkle(this, Vector3(0f, PLOT_T + 0.35f, 0f))
         GameState.addProduce(p.id, 1 + bonus)
         GameState.postHint("收获 ${p.emoji}${p.name} ×${1 + bonus}！去收购站卖钱")
         plant = null
@@ -261,6 +264,7 @@ class FarmPlotEntity(
                 setScaleVector(Vector3(s, s, s))
             }
             addChild(model)
+            Burst.popScale(model, s)
             if (mature) {
                 GameState.postHint("${p.emoji}${p.name}成熟了！点它收获 🧺")
             }

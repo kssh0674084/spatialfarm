@@ -70,6 +70,36 @@ fun HomeStage() {
             sceneHolder.village = null
         }
     }
+    // 演示模式：应用内自动表演（录屏用，无需外部自动化）
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!GameState.demoMode) return@LaunchedEffect
+        kotlinx.coroutines.delay(2500)
+        val nav = navigator
+        val village = sceneHolder.village ?: return@LaunchedEffect
+        // 1) 浇水两次（水花特效特写）
+        village.plots.firstOrNull { it.cropState() in 1..4 }?.let {
+            it.onTap(); kotlinx.coroutines.delay(1800); it.onTap()
+        }
+        kotlinx.coroutines.delay(2200)
+        // 2) 成熟收获（闪光）
+        village.plots.firstOrNull { it.cropState() == 5 }?.let { it.onTap() }
+        kotlinx.coroutines.delay(2200)
+        // 3) 卖菜窗口 + 自动全卖
+        nav.openWindowContainer(WINDOW_ID_BUYER)
+        kotlinx.coroutines.delay(2600)
+        GameState.sellAll()
+        kotlinx.coroutines.delay(1800)
+        // 4) 图鉴知识卡
+        nav.openWindowContainer(WINDOW_ID_ALMANAC)
+        kotlinx.coroutines.delay(2800)
+        // 5) 沙盘小人国
+        village.toggleDiorama()
+        kotlinx.coroutines.delay(3400)
+        village.toggleDiorama()
+        kotlinx.coroutines.delay(1600)
+        // 6) 孩子帮忙收尾
+        village.children.firstOrNull()?.onTap()
+    }
     SpatialView(
         modifier =
             Modifier.pointerInput(Unit) {

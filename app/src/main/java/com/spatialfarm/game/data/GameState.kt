@@ -27,6 +27,9 @@ object GameState {
 
     private var loaded = false
 
+    /** 演示模式（存档中注入 demoMode=true 触发；不写回存档） */
+    var demoMode = false
+
     /** 应用启动时初始化：绑定存档上下文并读取进度 */
     fun init(context: Context) {
         SaveStore.attach(context)
@@ -81,6 +84,7 @@ object GameState {
         json.put("plots", plotsJson)
 
         // 每日委托：日期 + 已完成 id
+        json.put("demoMode", demoMode)
         json.put("questDate", Quests.questDate)
         val doneArr = JSONArray()
         Quests.today.filter { it.done }.forEach { doneArr.put(it.id) }
@@ -125,6 +129,7 @@ object GameState {
                     )
                 }
             }
+            demoMode = json.optBoolean("demoMode", false)
             hint = "欢迎回来！进度已恢复 🌱"
         }
 
