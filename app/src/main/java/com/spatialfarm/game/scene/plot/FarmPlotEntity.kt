@@ -76,6 +76,23 @@ class FarmPlotEntity(
         }
     }
 
+    /** 从存档恢复（VillageScene 创建田垄后调用）。 */
+    fun restore(snapshot: com.spatialfarm.game.data.PlotSnapshot) {
+        val def = com.spatialfarm.game.data.plantById(snapshot.plantId) ?: return
+        locked = false
+        plant = def
+        stage = snapshot.stage
+        stageProgress = snapshot.stageProgress
+        quality = snapshot.quality
+        generation++
+        refreshPlantModel()
+    }
+
+    /** 记录快照到全局存档 */
+    private fun snapshot() {
+        GameState.snapshotPlot(index, plant?.id, stage, stageProgress, quality)
+    }
+
     /** 购买后开垦：荒地变良田。 */
     fun unlock() {
         if (!locked) return
@@ -117,6 +134,7 @@ class FarmPlotEntity(
         stageProgress = 0f
         quality = 0
         generation++
+        snapshot()
         return p
     }
 
@@ -146,6 +164,7 @@ class FarmPlotEntity(
         quality = 0
         generation++
         refreshPlantModel()
+        snapshot()
         GameState.postHint("种下了 ${def.emoji}${def.name}，点它浇水 💧")
     }
 
@@ -157,6 +176,7 @@ class FarmPlotEntity(
         if (fertilized) boost += 0.25f
         stageProgress += stageDuration(p) * boost
         val fertTag = if (fertilized) " 🌱施肥" else ""
+        snapshot()
         GameState.postHint("浇水 💧 ${p.emoji}${p.name} 品质 $quality$fertTag")
     }
 
@@ -171,6 +191,7 @@ class FarmPlotEntity(
         stageProgress = 0f
         quality = 0
         generation++
+        snapshot()
     }
 
     // ---------------------------------------------------------------- 生长
@@ -183,6 +204,7 @@ class FarmPlotEntity(
             stageProgress = 0f
             stage++
             refreshPlantModel()
+            snapshot()
         }
     }
 

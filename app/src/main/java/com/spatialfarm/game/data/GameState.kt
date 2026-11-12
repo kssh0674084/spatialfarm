@@ -1,16 +1,143 @@
 package com.spatialfarm.game.data
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import org.json.JSONObject
+
+/** 田垄快照（存档用） */
+data class PlotSnapshot(
+    val plantId: String,
+    val stage: Int,
+    val stageProgress: Float,
+    val quality: Int,
+)
 
 /**
  * 全局游戏状态（Compose 响应式单例）。
- * M2 阶段先内存态，M3 引入 JSON 存档。
+ * 存档：SharedPreferences JSON（M4-2），周期自动保存。
  */
 object GameState {
+    /** 田垄快照：plotIndex -> 状态（由 FarmPlotEntity 写入，存档与恢复用） */
+    val plotSnapshots = mutableMapOf<Int, PlotSnapshot>()
+
+    private var loaded = false
+
+    /** 应用启动时初始化：绑定存档上下文并读取进度 */
+    fun init(context: Context) {
+        SaveStore.attach(context)
+        if (loaded) return
+        loaded = true
+        restore()
+    }
+
+    /** 记录一块田的状态快照 */
+    fun snapshotPlot(index: Int, plantId: String?, stage: Int, stageProgress: Float, quality: Int) {
+        if (plantId == null) {
+            plotSnapshots.remove(index)
+        } else {
+            plotSnapshots[index] = PlotSnapshot(plantId, stage, stageProgress, quality)
+        }
+    }
+
+    // ---------------------------------------------------------------- 存档
+
+    /** 序列化并写入存档（周期调用） */
+    fun save() {
+        val json = JSONObject()
+        json.put("wallet", wallet)
+        json.put("plotsOwned", plotsOwned)
+        json.put("sprinkler", hasSprinkler)
+        json.put("fertilizer", fertilizer)
+        json.put("scarecrow", hasScarecrow)
+        json.put("theft", theftCount)
+        json.put("playerSteal", playerStealCount)
+        json.put("selected", selectedSeedId ?: JSONObject.NULL)
+
+        fun mapToJson(map: Map<String, Int>): JSONObject {
+            val o = JSONObject()
+            map.forEach { (k, v) -> o.put(k, v) }
+            return o
+        }
+        json.put("seeds", mapToJson(seeds))
+        json.put("produce", mapToJson(produce))
+        json.put("harvestLog", mapToJson(harvestLog))
+
+        val plotsJson = JSONObject()
+        plotSnapshots.forEach { (idx, s) ->
+            plotsJson.put(
+                idx.toString(),
+                JSONObject()
+                    .put("plant", s.plantId)
+                    .put("stage", s.stage)
+                    .put("progress", s.stageProgress.toDouble())
+                    .put("quality", s.quality)
+            )
+        }
+        json.put("plots", plotsJson)
+        SaveStore.write(json)
+    }
+
+    /** 从存档恢复（启动时调用一次） */
+    private fun restore() {
+        val json = SaveStore.read() ?: return
+        runCatching {
+            wallet = json.optInt("wallet", 5000)
+            plotsOwned = json.optInt("plotsOwned", 2)
+            hasSprinkler = json.optBoolean("sprinkler", false)
+            fertilizer = json.optInt("fertilizer", 0)
+            hasScarecrow = json.optBoolean("scarecrow", false)
+            theftCount = json.optInt("theft", 0)
+            playerStealCount = json.optInt("playerSteal", 0)
+            val sel = json.optString("selected", "")
+            selectedSeedId = sel.ifEmpty { null }
+
+            fun jsonToMap(o: JSONObject?): Map<String, Int> {
+                if (o == null) return emptyMap()
+                val m = mutableMapOf<String, Int>()
+                for (key in o.keys()) m[key] = o.optInt(key)
+                return m
+            }
+            seeds.clear(); seeds.putAll(jsonToMap(json.optJSONObject("seeds")))
+            produce.clear(); produce.putAll(jsonToMap(json.optJSONObject("produce")))
+            harvestLog.clear(); harvestLog.putAll(jsonToMap(json.optJSONObject("harvestLog")))
+
+            plotSnapshots.clear()
+            json.optJSONObject("plots")?.let { plotsJson ->
+                for (key in plotsJson.keys()) {
+                    val o = plotsJson.optJSONObject(key) ?: continue
+                    plotSnapshots[key.toInt()] = PlotSnapshot(
+                        plantId = o.optString("plant"),
+                        stage = o.optInt("stage"),
+                        stageProgress = o.optDouble("progress", 0.0).toFloat(),
+                        quality = o.optInt("quality"),
+                    )
+                }
+            }
+            hint = "欢迎回来！进度已恢复 🌱"
+        }
+    }
+
+    /** 清除存档（未来「重新开始」用） */
+    fun resetAll() {
+        SaveStore.clear()
+        plotSnapshots.clear()
+        wallet = 5000
+        plotsOwned = 2
+        hasSprinkler = false
+        fertilizer = 0
+        hasScarecrow = false
+        theftCount = 0
+        playerStealCount = 0
+        selectedSeedId = null
+        seeds.clear()
+        produce.clear()
+        harvestLog.clear()
+        hint = "重新开始新生活 🌱"
+    }
     /** 钱包（元）。初始 5000 元是设计定值。 */
     var wallet by mutableIntStateOf(5000)
         private set

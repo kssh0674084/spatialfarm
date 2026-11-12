@@ -133,6 +133,8 @@ class VillageEntity : Entity() {
             val z = PLOT_ROW_Z0 - row * ROW_GAP
             val plot = FarmPlotEntity(i, locked = i >= GameState.plotsOwned)
             plot.components[TransformComponent::class.java]!!.setPosition(Vector3(x, 0f, z))
+            // 恢复存档中的作物状态
+            GameState.plotSnapshots[i]?.let { snapshot -> plot.restore(snapshot) }
             plots.add(plot)
             group.addChild(plot)
         }
