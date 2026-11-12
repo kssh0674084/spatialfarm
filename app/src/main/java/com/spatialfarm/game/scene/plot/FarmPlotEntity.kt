@@ -291,16 +291,21 @@ class FarmPlotEntity(
                 BoxOption(Vector3(PLOT_W, PLOT_T, PLOT_D))
                     .setCornerRadius(0.12f)
                     .setName("plot_soil")
-            ).also { sharedSoilMesh = it }
+            ).also {
+                it.toGlobal()
+                sharedSoilMesh = it
+            }
 
         fun soilMaterial(): UnlitMaterial =
             sharedSoilMat ?: UnlitMaterial.create().apply {
                 setBaseColor(Color4(0.60f, 0.45f, 0.34f, 1f))
+                toGlobal()
             }.also { sharedSoilMat = it }
 
         fun grassMaterial(): UnlitMaterial =
             sharedGrassMat ?: UnlitMaterial.create().apply {
                 setBaseColor(Color4(0.66f, 0.80f, 0.55f, 1f))
+                toGlobal()
             }.also { sharedGrassMat = it }
 
         /** 各作物的显示缩放（模型原始尺寸不同）。 */

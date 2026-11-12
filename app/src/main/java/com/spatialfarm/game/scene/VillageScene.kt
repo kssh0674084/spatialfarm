@@ -59,7 +59,10 @@ class VillageEntity : Entity() {
 
     private fun mat(key: String, color: Color4): Material =
         materials.getOrPut(key) {
-            UnlitMaterial.create().apply { setBaseColor(color) }
+            UnlitMaterial.create().apply {
+                setBaseColor(color)
+                toGlobal()
+            }
         }
 
     private fun setUp() {

@@ -20,8 +20,11 @@ object Sfx {
     private fun ensureLoaded() {
         if (birdsRes != null) return
         birdsRes = AudioResource.load("sfx_birds", "asset://audio/birds.wav", LoadType.FROM_ASSETS)
+            .also { it.toGlobal() }
         harvestRes = AudioResource.load("sfx_harvest", "asset://audio/harvest.wav", LoadType.FROM_ASSETS)
+            .also { it.toGlobal() }
         waterRes = AudioResource.load("sfx_water", "asset://audio/water.wav", LoadType.FROM_ASSETS)
+            .also { it.toGlobal() }
     }
 
     /** 给实体挂上点位音源组件（一次性创建） */

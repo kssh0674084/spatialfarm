@@ -28,16 +28,21 @@ object Burst {
     private var sparkMat: UnlitMaterial? = null
 
     private fun mesh(): MeshResource =
-        sphereMesh ?: MeshResource.createSphere(SphereOption(0.035f)).also { sphereMesh = it }
+        sphereMesh ?: MeshResource.createSphere(SphereOption(0.035f)).also {
+            it.toGlobal()          // 不随粒子实体销毁而释放，避免复用已关闭资源
+            sphereMesh = it
+        }
 
     private fun waterMaterial(): UnlitMaterial =
         waterMat ?: UnlitMaterial.create().apply {
             setBaseColor(Color4(0.55f, 0.80f, 0.98f, 1f))
+            toGlobal()
         }.also { waterMat = it }
 
     private fun sparkMaterial(): UnlitMaterial =
         sparkMat ?: UnlitMaterial.create().apply {
             setBaseColor(Color4(1f, 0.85f, 0.35f, 1f))
+            toGlobal()
         }.also { sparkMat = it }
 
     /** 浇水水花：蓝色小球向上四散 */
