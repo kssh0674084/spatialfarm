@@ -3,6 +3,7 @@ package com.spatialfarm.game.data
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
@@ -17,20 +18,70 @@ object GameState {
     /** 背包种子：plantId -> 持有数量 */
     val seeds = mutableStateMapOf<String, Int>()
 
+    /** 收获的作物：plantId -> 数量（M2-4 收购站卖钱） */
+    val produce = mutableStateMapOf<String, Int>()
+
+    /** 当前选中的种子 plantId */
+    var selectedSeedId by mutableStateOf<String?>(null)
+        private set
+
+    /** 最近一条操作提示（HUD 显示用） */
+    var hint by mutableStateOf("先买种子，再点田垄播种 🌱")
+
     /** 购买种子；成功返回 true。 */
     fun buySeed(plant: PlantDef): Boolean {
-        if (wallet < plant.seedPrice) return false
+        if (wallet < plant.seedPrice) {
+            hint = "钱不够啦，去卖点菜吧 💰"
+            return false
+        }
         wallet -= plant.seedPrice
         seeds[plant.id] = (seeds[plant.id] ?: 0) + 1
+        if (selectedSeedId == null) selectedSeedId = plant.id
+        hint = "买了 1 颗${plant.name}种子，点田垄播种吧"
         return true
     }
 
     /** 持有某种子数量 */
     fun seedCount(plantId: String): Int = seeds[plantId] ?: 0
 
-    /** 收入入账（M2-4 卖菜用）。 */
+    /** 选中种子 */
+    fun selectSeed(plantId: String) {
+        selectedSeedId = plantId
+        hint = "已选 ${plantById(plantId)?.name ?: plantId} 种子，点空地播种"
+    }
+
+    /** 当前选中的植物定义 */
+    fun selectedPlant(): PlantDef? = selectedSeedId?.let { plantById(it) }
+
+    /** 消耗一颗种子；成功返回 true。 */
+    fun consumeSeed(plantId: String): Boolean {
+        val n = seeds[plantId] ?: return false
+        if (n <= 0) return false
+        if (n == 1) {
+            seeds.remove(plantId)
+            if (selectedSeedId == plantId) selectedSeedId = seeds.keys.firstOrNull()
+        } else {
+            seeds[plantId] = n - 1
+        }
+        return true
+    }
+
+    /** 收入入账（卖菜用）。 */
     fun earn(amount: Int) {
         require(amount >= 0)
         wallet += amount
+    }
+
+    /** 收获入篮 */
+    fun addProduce(plantId: String, count: Int = 1) {
+        produce[plantId] = (produce[plantId] ?: 0) + count
+    }
+
+    /** 收成总量 */
+    fun produceTotal(): Int = produce.values.sum()
+
+    /** 更新 HUD 提示 */
+    fun postHint(text: String) {
+        hint = text
     }
 }

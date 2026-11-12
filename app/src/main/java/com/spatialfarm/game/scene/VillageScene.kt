@@ -15,6 +15,7 @@ import com.pico.spatial.core.ecs.resource.UnlitMaterial
 import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
+import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,6 +30,9 @@ import kotlinx.coroutines.launch
  *       → 左后玩家小屋 → 右侧码头 → 边缘树林 → 远处风车
  */
 class VillageEntity : Entity() {
+    /** 田垄列表（HUD 快捷操作/测试用） */
+    val plots = mutableListOf<FarmPlotEntity>()
+
     /** 场景级材质注册表：同一颜色只创建一次材质（资源复用规范）。
      *  注意：必须声明在 init 之前（Kotlin 按声明顺序初始化）。 */
     private val materials = mutableMapOf<String, Material>()
@@ -94,28 +98,21 @@ class VillageEntity : Entity() {
         addChild(sun)
     }
 
-    // ---------------------------------------------------------------- 田垄（保留几何，作物模型后续填入）
+    // ---------------------------------------------------------------- 田垄（可交互种植位）
 
     private fun buildFarmPlots() {
-        val plots = Entity()
-        plots.setName("farm_plots")
-        plots.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0f, PLOT_Z))
-
-        val soilMesh = MeshResource.createBox(
-            BoxOption(Vector3(PLOT_W, PLOT_T, PLOT_D)).setCornerRadius(0.12f).setName("plot_soil")
-        )
-        val soilMat = mat("soil", SOIL)
+        val group = Entity()
+        group.setName("farm_plots")
+        group.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0f, PLOT_Z))
 
         for (i in 0 until 2) {
             val x = -PLOT_GAP / 2f + i * PLOT_GAP
-            val soil = ModelEntity(soilMesh, soilMat)
-            soil.setName("plot_$i")
-            soil.components[TransformComponent::class.java]!!.apply {
-                setPosition(Vector3(x, PLOT_T / 2f, 0f))
-            }
-            plots.addChild(soil)
+            val plot = FarmPlotEntity(i)
+            plot.components[TransformComponent::class.java]!!.setPosition(Vector3(x, 0f, 0f))
+            plots.add(plot)
+            group.addChild(plot)
         }
-        addChild(plots)
+        addChild(group)
     }
 
     // ---------------------------------------------------------------- 迎宾木牌

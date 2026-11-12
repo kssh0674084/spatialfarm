@@ -1,0 +1,216 @@
+package com.spatialfarm.game.scene.plot
+
+import com.pico.spatial.core.ecs.CollisionComponent
+import com.pico.spatial.core.ecs.Entity
+import com.pico.spatial.core.ecs.HoverEffectComponent
+import com.pico.spatial.core.ecs.InteractableComponent
+import com.pico.spatial.core.ecs.ModelEntity
+import com.pico.spatial.core.ecs.TransformComponent
+import com.pico.spatial.core.ecs.resource.BoxOption
+import com.pico.spatial.core.ecs.resource.MeshResource
+import com.pico.spatial.core.ecs.resource.PhysicsMaterialResource
+import com.pico.spatial.core.ecs.resource.ShapeResource
+import com.pico.spatial.core.ecs.resource.UnlitMaterial
+import com.pico.spatial.core.math.Color4
+import com.pico.spatial.core.math.Vector3
+import com.spatialfarm.game.data.GameState
+import com.spatialfarm.game.data.PlantDef
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/**
+ * 一块田垄：种植状态机。
+ *
+ * 空田 → 点按播种（消耗选中种子）→ 4 阶段生长（点按浇水提速+加品质）
+ * → 成熟（_Crop 模型）→ 点按收获入篮 → 回到空田。
+ *
+ * 生长速度：1 游戏日 = [GROW_SECONDS_PER_DAY] 秒（演示加速版）。
+ */
+class FarmPlotEntity(private val index: Int) : Entity() {
+
+    private val scope = CoroutineScope(Dispatchers.Main)
+
+    private var plant: PlantDef? = null
+    private var stage = 0                 // 0..3 生长中，>= STAGES 表示成熟
+    private var stageProgress = 0f        // 当前阶段已过秒数
+    private var quality = 0               // 照料品质 0..100（M2-4 卖价乘数）
+    private var plantRoot: Entity? = null
+    private var generation = 0            // 防止异步加载竞态
+
+    init {
+        setUp()
+    }
+
+    private fun setUp() {
+        setName("plot_$index")
+
+        // 土壤
+        val soil = ModelEntity(soilMesh(), soilMaterial())
+        soil.setName("plot_${index}_soil")
+        soil.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, PLOT_T / 2f, 0f))
+        addChild(soil)
+
+        // 交互：碰撞盒 + 可交互 + 悬停高亮
+        components[CollisionComponent::class.java] =
+            CollisionComponent(
+                collisionShape = listOf(ShapeResource.createBox(Vector3(PLOT_W, 0.5f, PLOT_D))),
+                physicsMaterial = PhysicsMaterialResource(),
+            )
+        components[InteractableComponent::class.java] = InteractableComponent()
+        components[HoverEffectComponent::class.java] = HoverEffectComponent()
+
+        // 生长心跳
+        scope.launch {
+            while (valid) {
+                delay(TICK_MS)
+                tick(TICK_MS / 1000f)
+            }
+        }
+    }
+
+    /** 用户点按田垄。 */
+    fun onTap() {
+        val p = plant
+        if (p == null) {
+            plantFromSelection()
+            return
+        }
+        if (stage >= STAGES) {
+            harvest(p)
+            return
+        }
+        water(p)
+    }
+
+    /** 0=空田，1..4=生长中，5=成熟（HUD 快捷操作判断用） */
+    fun cropState(): Int =
+        when {
+            plant == null -> 0
+            stage >= STAGES -> 5
+            else -> stage + 1
+        }
+
+    // ---------------------------------------------------------------- 动作
+
+    private fun plantFromSelection() {
+        val def = GameState.selectedPlant()
+        if (def == null) {
+            GameState.postHint("先去种子商店买种子吧 🏪")
+            return
+        }
+        if (!GameState.consumeSeed(def.id)) {
+            GameState.postHint("${def.name}种子用完了，去商店补货 🏪")
+            return
+        }
+        plant = def
+        stage = 0
+        stageProgress = 0f
+        quality = 0
+        generation++
+        refreshPlantModel()
+        GameState.postHint("种下了 ${def.emoji}${def.name}，点它浇水 💧")
+    }
+
+    private fun water(p: PlantDef) {
+        quality = (quality + 20).coerceAtMost(100)
+        stageProgress += stageDuration(p) * WATER_BOOST
+        GameState.postHint("浇水 💧 ${p.emoji}${p.name} 品质 $quality")
+    }
+
+    private fun harvest(p: PlantDef) {
+        val bonus = if (quality >= 60) 1 else 0
+        GameState.addProduce(p.id, 1 + bonus)
+        GameState.postHint("收获 ${p.emoji}${p.name} ×${1 + bonus}！去收购站卖钱")
+        plant = null
+        plantRoot?.destroy(true)
+        plantRoot = null
+        stage = 0
+        stageProgress = 0f
+        quality = 0
+        generation++
+    }
+
+    // ---------------------------------------------------------------- 生长
+
+    private fun tick(dt: Float) {
+        val p = plant ?: return
+        if (stage >= STAGES) return
+        stageProgress += dt
+        if (stageProgress >= stageDuration(p)) {
+            stageProgress = 0f
+            stage++
+            refreshPlantModel()
+        }
+    }
+
+    private fun stageDuration(p: PlantDef): Float =
+        p.growDays * GROW_SECONDS_PER_DAY / STAGES
+
+    private fun refreshPlantModel() {
+        val p = plant ?: return
+        val myGen = ++generation
+        val mature = stage >= STAGES
+        val uri =
+            if (mature) "models/crops/${p.assetBase}_Crop.glb"
+            else "models/crops/${p.assetBase}_${stage + 1}.glb"
+
+        scope.launch {
+            val model = Entity.loadSuspend("asset://$uri")
+            if (!valid || myGen != generation) {
+                model.destroy(true)
+                return@launch
+            }
+            plantRoot?.destroy(true)
+            plantRoot = model
+            val s = cropScale(p)
+            model.components[TransformComponent::class.java]?.apply {
+                setPosition(Vector3(0f, PLOT_T, 0f))
+                setScaleVector(Vector3(s, s, s))
+            }
+            addChild(model)
+            if (mature) {
+                GameState.postHint("${p.emoji}${p.name}成熟了！点它收获 🧺")
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- 资源
+
+    private companion object {
+        const val PLOT_W = 1.3f
+        const val PLOT_T = 0.22f
+        const val PLOT_D = 0.9f
+        const val STAGES = 4
+        const val GROW_SECONDS_PER_DAY = 60f   // 1 游戏日 = 60 秒（演示）
+        const val TICK_MS = 200L
+        const val WATER_BOOST = 0.12f          // 每次浇水推进 12% 当前阶段
+
+        var sharedSoilMesh: MeshResource? = null
+        var sharedSoilMat: UnlitMaterial? = null
+
+        fun soilMesh(): MeshResource =
+            sharedSoilMesh ?: MeshResource.createBox(
+                BoxOption(Vector3(PLOT_W, PLOT_T, PLOT_D))
+                    .setCornerRadius(0.12f)
+                    .setName("plot_soil")
+            ).also { sharedSoilMesh = it }
+
+        fun soilMaterial(): UnlitMaterial =
+            sharedSoilMat ?: UnlitMaterial.create().apply {
+                setBaseColor(Color4(0.60f, 0.45f, 0.34f, 1f))
+            }.also { sharedSoilMat = it }
+
+        /** 各作物的显示缩放（模型原始尺寸不同）。 */
+        fun cropScale(p: PlantDef): Float =
+            when (p.assetBase) {
+                "Watermelon", "Pumpkin" -> 0.45f
+                "Corn", "Wheat" -> 0.5f
+                "BushBerries" -> 0.55f
+                "Tomato" -> 0.5f
+                "Carrot" -> 0.5f
+                else -> 0.55f
+            }
+    }
+}
