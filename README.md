@@ -1,26 +1,35 @@
 # 小小田园 SpatialFarm 🌱
 
 > PICO Space Program 2026 参赛作品 · Spatial 空间应用创作赛道
->
-**A cozy island-village farming life-sim in MR.** Plant real crops, trade with fishermen and craftsmen, feed your family, guard your veggies from the lazy neighbor — and learn real gardening along the way.
 
-把一座温馨的小岛村庄搬进你的客厅：种菜、吃饭、换鱼、做工具、防小偷——玩着玩着，学会了真实的种植知识。
+**A cozy island-village farming life-sim in MR.** Plant real crops, trade with the shopkeeper, upgrade your tools, expand your land, feed the basket — and keep an eye on your veggies, because your neighbor Lao Wang steals them!
 
-## ✨ 核心玩法
+把一座温馨的小岛村庄搬进你的客厅：种菜、卖菜、扩田、买工具、防小偷——玩着玩着，学会了真实的种植知识。
 
-- 🌱 **真实种植**：8 种作物按真实农艺阶段生长（发芽→幼苗→开花→结果），图鉴卡背面是真实种植知识
-- 💰 **经济循环**：5000 元开局，买种子/工具/扩田，卖菜赚差价，照料决定品质（★~★★★ 价格翻倍）
-- 🏝️ **村庄生态**：渔夫海叔（菜换鱼）、工匠锤叔（做工具）、店主梅姨、食堂胖婶、懒汉老王——人人有存在意义
-- 🍚 **生存系统**：饱食度进度条、体力管理、小食补充；饿过头会生病（幽默的晕倒过场，不死亡）
-- 👨‍👩‍👧‍👦 **四口之家**：选爸爸/妈妈开局，指派儿子浇水、女儿采果，做饭提升亲密度
-- 🌙 **偷菜情怀**：QQ 农场式猫鼠博弈——偷老王的菜、防老王偷你的，稻草人和看门狗小黄守护农田
-- 🚚 **环岛货车**：菜筐搬上车自动运出去卖，村庄的经济动脉
-- 🗺️ **多窗口 MR**：商店/图鉴/地图/任务/对话五个空间窗口 + 环绕用户的 3D 村庄 + 空间音频（海浪从码头方向传来）
-- 🎭 **主线六章 + 委托板**：从新人上岛到丰收节的村庄成长故事
+## ✨ 已实现玩法（可玩版本）
+
+- 🌱 **真实种植循环**：买种子 → 播种 → 浇水（提速+品质）→ 4 阶段生长模型 → 收获入篮
+- 💰 **经济闭环**：5000 元开局；种子店（8 种作物）/ 收购站（卖菜换钱）/ 工具铺（洒水喷头、肥料、稻草人）/ 扩田（2→8 块，价格阶梯 1000~32000）
+- 😱 **偷菜情怀**：邻居老王定时溜达到田边偷成熟作物；立稻草人降低偷菜成功率；趁他不在家可以反偷他的菜（被逮到罚 ¥200）
+- 📕 **植物图鉴**：收获解锁 8 种作物的真实种植知识卡（科普灵魂）
+- 💾 **自动存档**：每 3 秒自动保存，重启进度不丢
+- 🔊 **空间音频**：树林方向传来鸟鸣（点位音源）、浇水声、收获铃
+- 🌤️ **旷野之息风场景**：程序化起伏草原（RawMesh 顶点色）、渐变天空球、阳光阴影、Quaternius 3D 模型村庄
+
+## 🎮 操作方式
+
+| 操作 | 方式 |
+|---|---|
+| 环顾村庄 | 转头 / 鼠标拖动 |
+| 点按田垄 | 射线指向田垄按扳机（或鼠标左键）：空地播种 / 生长中浇水 / 成熟收获 |
+| 点按老王菜地 | 偷菜（趁他不在家！） |
+| HUD 按钮 | 🏪 种子 / 🧺 卖菜 / 📕 图鉴 / 🛠️ 工具 / 👆 照料（智能操作下一块田）/ 🪴 扩田 |
+
+**推荐第一次游玩路线**：买 2 颗生菜种子 → 点田垄播种 → 浇 2 次水 → 等它长大（生菜 1 游戏日=60 秒）→ 收获 → 收购站卖菜 → 体验扩田。
 
 ## 🛠️ 技术栈
 
-Android · Kotlin · Jetpack Compose（SpatialUI）· PICO Spatial SDK 6.2.8 · Stage + WindowContainer 多窗口 · Spatial ECS · GLB（CC0: Kenney / Quaternius / Poly Pizza）
+Android · Kotlin · Jetpack Compose（SpatialUI）· PICO Spatial SDK 6.2.8 · Stage + 4 个 WindowContainer 多窗口 · Spatial ECS · RawMesh 程序化地形 · GLB（Quaternius CC0）· 程序化音频（零版权）
 
 ## 📖 文档
 
@@ -28,4 +37,4 @@ Android · Kotlin · Jetpack Compose（SpatialUI）· PICO Spatial SDK 6.2.8 · 
 
 ## 📄 许可
 
-代码 [MIT](LICENSE)；第三方素材遵循各自 CC0 许可（见 `assets/` 内标注）。
+代码 [MIT](LICENSE)；3D 素材 [Quaternius](https://quaternius.com/)（CC0）；音效由项目脚本程序化生成（CC0）。
