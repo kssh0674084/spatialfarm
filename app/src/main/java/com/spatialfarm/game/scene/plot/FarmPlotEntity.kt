@@ -106,6 +106,20 @@ class FarmPlotEntity(
         water(p)
     }
 
+    /** 被老王偷菜：成熟作物被拿走（不入篮），返回被偷的作物；非成熟返回 null。 */
+    fun thiefHarvest(): PlantDef? {
+        val p = plant ?: return null
+        if (stage < STAGES) return null
+        plant = null
+        plantRoot?.destroy(true)
+        plantRoot = null
+        stage = 0
+        stageProgress = 0f
+        quality = 0
+        generation++
+        return p
+    }
+
     /** 0=空田，1..4=生长中，5=成熟（HUD 快捷操作判断用） */
     fun cropState(): Int =
         when {

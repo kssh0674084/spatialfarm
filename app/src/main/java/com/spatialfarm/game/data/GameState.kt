@@ -59,6 +59,51 @@ object GameState {
     var fertilizer by mutableIntStateOf(0)
         private set
 
+    /** 工具：稻草人（防老王偷菜） */
+    var hasScarecrow by mutableStateOf(false)
+        private set
+
+    /** 我被偷次数 */
+    var theftCount by mutableIntStateOf(0)
+        private set
+
+    /** 我偷老王次数 */
+    var playerStealCount by mutableIntStateOf(0)
+        private set
+
+    /** 稻草人购买后的视觉落地回调（由主场景注册） */
+    var onScarecrowBought: (() -> Unit)? = null
+
+    /** 购买稻草人 */
+    fun buyScarecrow(): Boolean {
+        if (hasScarecrow) return false
+        if (wallet < 500) {
+            hint = "稻草人要 ¥500，钱还不够 💰"
+            return false
+        }
+        wallet -= 500
+        hasScarecrow = true
+        hint = "立起了稻草人！老王偷菜成功率大降 🎃"
+        return true
+    }
+
+    /** 被老王偷菜记账 */
+    fun registerTheft() {
+        theftCount++
+    }
+
+    /** 偷老王记账 */
+    fun registerPlayerSteal() {
+        playerStealCount++
+    }
+
+    /** 罚款：钱包够则扣款返回 true；不够扣到 0 返回 false */
+    fun fined(amount: Int): Boolean {
+        val paid = wallet >= amount
+        wallet = (wallet - amount).coerceAtLeast(0)
+        return paid
+    }
+
     /** 购买洒水喷头 */
     fun buySprinkler(): Boolean {
         if (hasSprinkler) return false

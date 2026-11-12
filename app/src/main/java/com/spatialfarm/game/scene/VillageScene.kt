@@ -16,6 +16,7 @@ import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
+import com.spatialfarm.game.scene.neighbor.LaoWangEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,10 @@ import kotlinx.coroutines.launch
 class VillageEntity : Entity() {
     /** 田垄列表（HUD 快捷操作/测试用） */
     val plots = mutableListOf<FarmPlotEntity>()
+
+    /** 邻居老王（供 HUD/偷菜逻辑查询状态） */
+    var laoWang: LaoWangEntity? = null
+        private set
 
     /** 场景级材质注册表：同一颜色只创建一次材质（资源复用规范）。
      *  注意：必须声明在 init 之前（Kotlin 按声明顺序初始化）。 */
@@ -57,8 +62,24 @@ class VillageEntity : Entity() {
         buildFarmPlots()
         buildSign()
         buildDock()
+        buildLaoWang()
         // 3D 模型异步加载（不阻塞首帧）
         ioScope.launch { loadModels() }
+    }
+
+    // ---------------------------------------------------------------- 邻居老王
+
+    private fun buildLaoWang() {
+        laoWang = LaoWangEntity(plots)
+        addChild(laoWang!!)
+        if (GameState.hasScarecrow) placeScarecrow()
+    }
+
+    /** 立稻草人（购买后调用）：在田边放一个草垛作为视觉标志 */
+    fun placeScarecrow() {
+        ioScope.launch {
+            loadModel("models/village/Hay.glb", Vector3(-1.05f, 0f, PLOT_ROW_Z0 + 0.2f), scale = 0.55f)
+        }
     }
 
     // ---------------------------------------------------------------- 天空球

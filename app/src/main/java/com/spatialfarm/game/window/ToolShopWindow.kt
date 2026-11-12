@@ -67,6 +67,16 @@ fun ToolShopWindow() {
                     enabled = true,
                     onBuy = { GameState.buyFertilizer() },
                 )
+                ToolRow(
+                    emoji = "🎃",
+                    name = "稻草人",
+                    desc = "立在田边吓唬老王：偷菜成功率 95% → 35%",
+                    priceText = if (GameState.hasScarecrow) "已拥有 ✅" else "¥500",
+                    enabled = !GameState.hasScarecrow,
+                    onBuy = {
+                        if (GameState.buyScarecrow()) GameState.onScarecrowBought?.invoke()
+                    },
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "💡 锤叔说：工具和土地一样，越早投资，回本越快。",

@@ -33,6 +33,7 @@ import com.pico.spatial.ui.platform.containers.LocalSpatialNavigator
 import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.data.plantById
 import com.spatialfarm.game.scene.VillageEntity
+import com.spatialfarm.game.scene.neighbor.StealSpotEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import com.spatialfarm.game.window.WINDOW_ID_ALMANAC
 import com.spatialfarm.game.window.WINDOW_ID_BUYER
@@ -53,7 +54,11 @@ fun HomeStage() {
     // 场景生命周期管理：离开组合时销毁村庄，防止重复加载导致内存膨胀
     val sceneHolder = remember { SceneHolder() }
     DisposableEffect(Unit) {
+        GameState.onScarecrowBought = {
+            sceneHolder.village?.placeScarecrow()
+        }
         onDispose {
+            GameState.onScarecrowBought = null
             sceneHolder.village?.destroy(true)
             sceneHolder.village = null
         }
@@ -65,6 +70,10 @@ fun HomeStage() {
                     var e = tap.targetEntity
                     while (e != null) {
                         if (e is FarmPlotEntity) {
+                            e.onTap()
+                            break
+                        }
+                        if (e is StealSpotEntity) {
                             e.onTap()
                             break
                         }
