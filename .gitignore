@@ -33,6 +33,10 @@ google-services.json
 # Android Profiling
 *.hprof
 
+# Build logs & dev screenshots
+build.log
+screenshot-*.png
+
 # PICO CLI machine-local tooling state
 .claude/
 .pico-env.json
@@ -42,4 +46,5 @@ google-services.json
 
 # Private design notes (not part of this repo)
 new-game/
+我穿越回石器时代开启新生/
 
