@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -46,6 +47,8 @@ fun AlmanacWindow() {
                     style = PicoTheme.typography.titleMedium.copy(fontSize = 30.sp),
                     color = PicoTheme.colorScheme.labelSecondary,
                 )
+                Spacer(modifier = Modifier.width(12.dp))
+                WindowCloseButton(WINDOW_ID_ALMANAC)
             }
 
             LazyColumn(

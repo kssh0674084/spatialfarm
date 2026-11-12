@@ -50,6 +50,8 @@ fun BuyerStandWindow() {
                     style = PicoTheme.typography.titleMedium.copy(fontSize = 34.sp),
                     color = PicoTheme.colorScheme.labelPrimary,
                 )
+                Spacer(modifier = Modifier.width(12.dp))
+                WindowCloseButton(WINDOW_ID_BUYER)
             }
 
             if (GameState.isMarketDay()) {
