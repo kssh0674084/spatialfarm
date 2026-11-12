@@ -136,9 +136,14 @@ class FarmPlotEntity(
     }
 
     private fun water(p: PlantDef) {
-        quality = (quality + 20).coerceAtMost(100)
-        stageProgress += stageDuration(p) * WATER_BOOST
-        GameState.postHint("浇水 💧 ${p.emoji}${p.name} 品质 $quality")
+        val sprinkler = GameState.hasSprinkler
+        quality = (quality + if (sprinkler) 30 else 20).coerceAtMost(100)
+        var boost = if (sprinkler) 0.20f else 0.12f
+        val fertilized = GameState.consumeFertilizer()
+        if (fertilized) boost += 0.25f
+        stageProgress += stageDuration(p) * boost
+        val fertTag = if (fertilized) " 🌱施肥" else ""
+        GameState.postHint("浇水 💧 ${p.emoji}${p.name} 品质 $quality$fertTag")
     }
 
     private fun harvest(p: PlantDef) {

@@ -51,6 +51,46 @@ object GameState {
     /** 图鉴解锁记录：plantId -> 累计收获次数（卖出不影响解锁） */
     val harvestLog = mutableStateMapOf<String, Int>()
 
+    /** 工具：洒水喷头（永久升级） */
+    var hasSprinkler by mutableStateOf(false)
+        private set
+
+    /** 工具：肥料库存（消耗品） */
+    var fertilizer by mutableIntStateOf(0)
+        private set
+
+    /** 购买洒水喷头 */
+    fun buySprinkler(): Boolean {
+        if (hasSprinkler) return false
+        if (wallet < 800) {
+            hint = "洒水喷头要 ¥800，还差一点 💰"
+            return false
+        }
+        wallet -= 800
+        hasSprinkler = true
+        hint = "买下洒水喷头！浇水品质+30%、生长更快 💧"
+        return true
+    }
+
+    /** 购买肥料×5 */
+    fun buyFertilizer(): Boolean {
+        if (wallet < 200) {
+            hint = "肥料要 ¥200，还差一点 💰"
+            return false
+        }
+        wallet -= 200
+        fertilizer += 5
+        hint = "买了 5 袋肥料！浇水时自动施肥 🌱"
+        return true
+    }
+
+    /** 消耗一袋肥料 */
+    fun consumeFertilizer(): Boolean {
+        if (fertilizer <= 0) return false
+        fertilizer--
+        return true
+    }
+
     /** 当前选中的种子 plantId */
     var selectedSeedId by mutableStateOf<String?>(null)
         private set

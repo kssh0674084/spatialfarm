@@ -37,6 +37,7 @@ import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import com.spatialfarm.game.window.WINDOW_ID_ALMANAC
 import com.spatialfarm.game.window.WINDOW_ID_BUYER
 import com.spatialfarm.game.window.WINDOW_ID_SEED_SHOP
+import com.spatialfarm.game.window.WINDOW_ID_TOOLSHOP
 
 /**
  * 主场景：村口小院 + 标题/HUD 面板。
@@ -145,6 +146,12 @@ fun HomeStage() {
                                 onClick = { navigator.openWindowContainer(WINDOW_ID_ALMANAC) }
                             ) {
                                 Text(text = "📕 图鉴", fontSize = 30.sp)
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Button(
+                                onClick = { navigator.openWindowContainer(WINDOW_ID_TOOLSHOP) }
+                            ) {
+                                Text(text = "🛠️ 工具", fontSize = 30.sp)
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             // 一键照料：有作物→浇水/收获，空地→播种（点按困难时的无障碍替代）

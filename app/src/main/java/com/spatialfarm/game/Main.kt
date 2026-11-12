@@ -5,9 +5,11 @@ import com.spatialfarm.game.content.HomeStage
 import com.spatialfarm.game.window.AlmanacWindow
 import com.spatialfarm.game.window.BuyerStandWindow
 import com.spatialfarm.game.window.SeedShopWindow
+import com.spatialfarm.game.window.ToolShopWindow
 import com.spatialfarm.game.window.WINDOW_ID_ALMANAC
 import com.spatialfarm.game.window.WINDOW_ID_BUYER
 import com.spatialfarm.game.window.WINDOW_ID_SEED_SHOP
+import com.spatialfarm.game.window.WINDOW_ID_TOOLSHOP
 import com.pico.spatial.ui.design.PicoTheme
 import com.pico.spatial.ui.foundation.dsl.DefaultStage
 import com.pico.spatial.ui.foundation.dsl.Form
@@ -48,5 +50,14 @@ fun mainApp(scope: SpatialAppScope) =
             defaultSize = WindowContainerSize(width = 920.dp, height = 660.dp),
         ) {
             AlmanacWindow()
+        }
+
+        // 窗口 D：锤叔的工具铺
+        WindowContainer(
+            id = WINDOW_ID_TOOLSHOP,
+            form = Form.Planar,
+            defaultSize = WindowContainerSize(width = 880.dp, height = 560.dp),
+        ) {
+            ToolShopWindow()
         }
     }
