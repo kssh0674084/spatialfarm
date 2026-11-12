@@ -339,6 +339,18 @@ object GameState {
         harvestLog[plantId] = (harvestLog[plantId] ?: 0) + count
     }
 
+    /** 今天是否集市日（周六） */
+    fun isMarketDay(): Boolean = java.time.LocalDate.now().dayOfWeek.value == 6
+
+    /** 当前收购价乘数：集市日 ×1.3 */
+    fun marketMultiplier(): Float = if (isMarketDay()) 1.3f else 1f
+
+    /** 单株作物当前收购价 */
+    fun currentSellPrice(plantId: String): Int {
+        val def = plantById(plantId) ?: return 0
+        return (def.baseSellPrice * marketMultiplier()).toInt()
+    }
+
     /** 卖出作物：成功返回收入（元）。count 超过持有量时卖出全部。 */
     fun sellProduce(plantId: String, count: Int = 1): Int {
         val def = plantById(plantId) ?: return 0
@@ -346,7 +358,7 @@ object GameState {
         val n = count.coerceAtMost(owned)
         if (n <= 0) return 0
         if (n >= owned) produce.remove(plantId) else produce[plantId] = owned - n
-        val income = def.baseSellPrice * n
+        val income = currentSellPrice(def.id) * n
         earn(income)
         return income
     }

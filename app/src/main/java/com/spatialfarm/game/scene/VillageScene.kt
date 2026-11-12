@@ -70,6 +70,8 @@ class VillageEntity : Entity() {
         buildAmbience()
         // 3D 模型异步加载（不阻塞首帧）
         ioScope.launch { loadModels() }
+        // 昼夜循环
+        ioScope.launch { clockLoop() }
     }
 
     // ---------------------------------------------------------------- 广场委托板
@@ -103,6 +105,54 @@ class VillageEntity : Entity() {
         laoWang = LaoWangEntity(plots)
         addChild(laoWang!!)
         if (GameState.hasScarecrow) placeScarecrow()
+    }
+
+    // ---------------------------------------------------------------- 昼夜循环
+
+    private var clockSeconds = 0f
+    private var lastPhase = "day"
+
+    private suspend fun clockLoop() {
+        while (valid) {
+            kotlinx.coroutines.delay(2_000)
+            clockSeconds += 2f
+            applyClock()
+        }
+    }
+
+    private fun applyClock() {
+        // 8 分钟一天：白天 0-55%，黄昏 55-65%，夜晚 65-90%，清晨 90-100%
+        val t = (clockSeconds % DAY_PERIOD) / DAY_PERIOD
+        val phase = when {
+            t < 0.55f -> "day"
+            t < 0.65f -> "dusk"
+            t < 0.90f -> "night"
+            else -> "dawn"
+        }
+        if (phase != lastPhase) {
+            lastPhase = phase
+            when (phase) {
+                "dusk" -> GameState.postHint("🌇 太阳下山了，黄昏的村庄真好看")
+                "night" -> GameState.postHint("🌙 夜深了。夜里作物也在悄悄长大")
+                "dawn" -> GameState.postHint("🌅 清晨，新的一天开始")
+            }
+        }
+        // 太阳：仰角随时间转一圈；强度按相位
+        val elevation = -90f + t * 360f
+        sunEntity?.components?.get(TransformComponent::class.java)?.apply {
+            setEulerAngles(EulerAngles(elevation, -32f, 0f))
+        }
+        val intensity = when (phase) {
+            "day" -> 1.1f
+            "dusk" -> 0.55f
+            "night" -> 0.06f
+            else -> 0.5f
+        }
+        sunEntity?.components?.get(DirectionalLightComponent::class.java)?.intensity = intensity
+        // 天空切换
+        skyDay?.enabled = phase == "day" || phase == "dawn"
+        skyDusk?.enabled = phase == "dusk"
+        skyNight?.enabled = phase == "night"
     }
 
     private var diorama = false
@@ -152,19 +202,31 @@ class VillageEntity : Entity() {
     // ---------------------------------------------------------------- 天空球
 
     private var skyEntity: Entity? = null
+    private var skyDay: Entity? = null
+    private var skyDusk: Entity? = null
+    private var skyNight: Entity? = null
+    private var sunEntity: Entity? = null
 
-    private fun buildSky() {
+    private fun makeSkySphere(name: String, tint: Color4): Entity {
         val sky = ModelEntity(
-            MeshResource.createSphere(SphereOption(55f).setName("sky_sphere")),
+            MeshResource.createSphere(SphereOption(55f).setName("sky_sphere_$name")),
             UnlitMaterial.create().apply {
+                setBaseColor(tint)
                 setBaseColorTextureParameter(MaterialTextureParameter(TextureResource("textures/sky.png")))
                 setCullingMode(MaterialCullingMode.NONE) // 双面：从球体内部可见
             }
         )
-        sky.setName("sky_dome")
+        sky.setName(name)
         sky.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, -2f, 0f))
-        skyEntity = sky
         addChild(sky)
+        return sky
+    }
+
+    private fun buildSky() {
+        skyDay = makeSkySphere("sky_day", Color4(1f, 1f, 1f, 1f))
+        skyDusk = makeSkySphere("sky_dusk", Color4(1.0f, 0.78f, 0.66f, 1f)).also { it.enabled = false }
+        skyNight = makeSkySphere("sky_night", Color4(0.30f, 0.36f, 0.55f, 1f)).also { it.enabled = false }
+        skyEntity = skyDay
     }
 
     // ---------------------------------------------------------------- 地形与光照
@@ -187,6 +249,7 @@ class VillageEntity : Entity() {
         }
         sun.components[DirectionalLightComponent::class.java] =
             DirectionalLightComponent(Color4(1f, 0.97f, 0.88f, 1f), 1.1f, true)
+        sunEntity = sun
         addChild(sun)
     }
 
@@ -386,6 +449,7 @@ class VillageEntity : Entity() {
         const val PLOT_GAP = 1.9f
         const val PLOT_ROW_Z0 = -2.0f
         const val ROW_GAP = 1.35f
+        const val DAY_PERIOD = 480f   // 一昼夜 8 分钟（演示尺度）
         val COL_XS = floatArrayOf(-2.85f, -0.95f, 0.95f, 2.85f)
 
         // ---- 粉彩调色板（保留几何体用） ----

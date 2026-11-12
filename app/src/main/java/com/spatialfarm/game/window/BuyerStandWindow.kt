@@ -52,6 +52,20 @@ fun BuyerStandWindow() {
                 )
             }
 
+            if (GameState.isMarketDay()) {
+                Text(
+                    text = "🎪 今天集市日！收购价 ×1.3，快把菜都卖了！",
+                    style = PicoTheme.typography.titleMedium.copy(fontSize = 28.sp),
+                    color = PicoTheme.colorScheme.labelPrimary,
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(PicoTheme.colorScheme.fillPrimary)
+                            .padding(12.dp),
+                )
+            }
+
             if (GameState.produce.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -89,7 +103,8 @@ fun BuyerStandWindow() {
                                     color = PicoTheme.colorScheme.labelPrimary,
                                 )
                                 Text(
-                                    text = "收购价 ¥${def.baseSellPrice}/个",
+                                    text = "收购价 ¥${GameState.currentSellPrice(def.id)}/个" +
+                                        if (GameState.isMarketDay()) "（集市 ×1.3）" else "",
                                     style = PicoTheme.typography.bodySmall.copy(fontSize = 22.sp),
                                     color = PicoTheme.colorScheme.labelSecondary,
                                 )
@@ -116,7 +131,7 @@ fun BuyerStandWindow() {
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                         ) {
                             Text(
-                                text = "全部卖出（¥${GameState.produce.entries.sumOf { (plantById(it.key)?.baseSellPrice ?: 0) * it.value }}）",
+                                text = "全部卖出（¥${GameState.produce.entries.sumOf { GameState.currentSellPrice(it.key) * it.value }}）",
                                 fontSize = 26.sp,
                             )
                         }
