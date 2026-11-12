@@ -34,6 +34,8 @@ import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.data.plantById
 import com.spatialfarm.game.scene.VillageEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
+import com.spatialfarm.game.window.WINDOW_ID_ALMANAC
+import com.spatialfarm.game.window.WINDOW_ID_BUYER
 import com.spatialfarm.game.window.WINDOW_ID_SEED_SHOP
 
 /**
@@ -130,9 +132,21 @@ fun HomeStage() {
                             Button(
                                 onClick = { navigator.openWindowContainer(WINDOW_ID_SEED_SHOP) }
                             ) {
-                                Text(text = "🏪 种子商店", fontSize = 30.sp)
+                                Text(text = "🏪 种子", fontSize = 30.sp)
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Button(
+                                onClick = { navigator.openWindowContainer(WINDOW_ID_BUYER) }
+                            ) {
+                                Text(text = "🧺 卖菜", fontSize = 30.sp)
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Button(
+                                onClick = { navigator.openWindowContainer(WINDOW_ID_ALMANAC) }
+                            ) {
+                                Text(text = "📕 图鉴", fontSize = 30.sp)
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
                             // 一键照料：有作物→浇水/收获，空地→播种（点按困难时的无障碍替代）
                             Button(
                                 onClick = {
@@ -143,7 +157,7 @@ fun HomeStage() {
                                     target?.onTap()
                                 }
                             ) {
-                                Text(text = "👆 照料田垄", fontSize = 30.sp)
+                                Text(text = "👆 照料", fontSize = 30.sp)
                             }
                         }
 

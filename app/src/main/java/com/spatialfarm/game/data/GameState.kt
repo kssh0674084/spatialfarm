@@ -21,6 +21,9 @@ object GameState {
     /** 收获的作物：plantId -> 数量（M2-4 收购站卖钱） */
     val produce = mutableStateMapOf<String, Int>()
 
+    /** 图鉴解锁记录：plantId -> 累计收获次数（卖出不影响解锁） */
+    val harvestLog = mutableStateMapOf<String, Int>()
+
     /** 当前选中的种子 plantId */
     var selectedSeedId by mutableStateOf<String?>(null)
         private set
@@ -75,7 +78,32 @@ object GameState {
     /** 收获入篮 */
     fun addProduce(plantId: String, count: Int = 1) {
         produce[plantId] = (produce[plantId] ?: 0) + count
+        harvestLog[plantId] = (harvestLog[plantId] ?: 0) + count
     }
+
+    /** 卖出作物：成功返回收入（元）。count 超过持有量时卖出全部。 */
+    fun sellProduce(plantId: String, count: Int = 1): Int {
+        val def = plantById(plantId) ?: return 0
+        val owned = produce[plantId] ?: return 0
+        val n = count.coerceAtMost(owned)
+        if (n <= 0) return 0
+        if (n >= owned) produce.remove(plantId) else produce[plantId] = owned - n
+        val income = def.baseSellPrice * n
+        earn(income)
+        return income
+    }
+
+    /** 全部卖出：返回总收入 */
+    fun sellAll(): Int {
+        var total = 0
+        for (id in produce.keys.toList()) {
+            total += sellProduce(id, produce[id] ?: 0)
+        }
+        return total
+    }
+
+    /** 图鉴是否解锁 */
+    fun isUnlocked(plantId: String): Boolean = (harvestLog[plantId] ?: 0) > 0
 
     /** 收成总量 */
     fun produceTotal(): Int = produce.values.sum()
