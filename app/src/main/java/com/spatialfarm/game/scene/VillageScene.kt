@@ -1,31 +1,39 @@
 package com.spatialfarm.game.scene
 
+import com.pico.spatial.core.ecs.DirectionalLightComponent
 import com.pico.spatial.core.ecs.Entity
 import com.pico.spatial.core.ecs.ModelEntity
 import com.pico.spatial.core.ecs.TransformComponent
 import com.pico.spatial.core.ecs.resource.BoxOption
 import com.pico.spatial.core.ecs.resource.Material
+import com.pico.spatial.core.ecs.resource.MaterialCullingMode
+import com.pico.spatial.core.ecs.resource.MaterialTextureParameter
 import com.pico.spatial.core.ecs.resource.MeshResource
+import com.pico.spatial.core.ecs.resource.SphereOption
+import com.pico.spatial.core.ecs.resource.TextureResource
 import com.pico.spatial.core.ecs.resource.UnlitMaterial
 import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
- * 村口小院 M2-1 地基骨架（旷野之息风格）。
+ * 村口小院（视觉冲刺版 v2）。
  *
- * Stage 坐标系：原点在用户脚部，+X 右、+Y 上、+Z 朝向用户。
- * 布局：
- *   - 地形：RawMesh 程序化起伏草原（见 [TerrainMesh]），村庄功能区已压平
- *   - 玩家小院（中前）：2 块田垄 + 篱笆 + 木牌
- *   - 玩家小屋（左后）：奶白墙 + 珊瑚红屋顶
- *   - 小镇主街（正北远处）：三间店铺占位（梅姨杂货/胖婶食堂/锤叔作坊）
- *   - 码头（右侧）：木栈板占位（海叔的船 M3 再来）
+ * - 地形：RawMesh 起伏草原（TerrainMesh）
+ * - 真 3D 模型：Quaternius CC0（crops/nature/village 包）
+ * - 阳光：方向光 + 阴影
+ * 布局：中前田垄 → 中央广场水井 → 北面主街（梅姨摊/胖婶食堂/锤叔铁匠铺）
+ *       → 左后玩家小屋 → 右侧码头 → 边缘树林 → 远处风车
  */
 class VillageEntity : Entity() {
     /** 场景级材质注册表：同一颜色只创建一次材质（资源复用规范）。
      *  注意：必须声明在 init 之前（Kotlin 按声明顺序初始化）。 */
     private val materials = mutableMapOf<String, Material>()
+
+    private val ioScope = CoroutineScope(Dispatchers.Main)
 
     init {
         setUp()
@@ -38,15 +46,32 @@ class VillageEntity : Entity() {
 
     private fun setUp() {
         setName("village_root")
+        buildSky()
         buildTerrain()
+        buildSun()
         buildFarmPlots()
-        buildFenceAndSign()
-        buildPlayerHouse()
-        buildMainStreet()
+        buildSign()
         buildDock()
+        // 3D 模型异步加载（不阻塞首帧）
+        ioScope.launch { loadModels() }
     }
 
-    // ---------------------------------------------------------------- 草原地形
+    // ---------------------------------------------------------------- 天空球
+
+    private fun buildSky() {
+        val sky = ModelEntity(
+            MeshResource.createSphere(SphereOption(55f).setName("sky_sphere")),
+            UnlitMaterial.create().apply {
+                setBaseColorTextureParameter(MaterialTextureParameter(TextureResource("textures/sky.png")))
+                setCullingMode(MaterialCullingMode.NONE) // 双面：从球体内部可见
+            }
+        )
+        sky.setName("sky_dome")
+        sky.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, -2f, 0f))
+        addChild(sky)
+    }
+
+    // ---------------------------------------------------------------- 地形与光照
 
     private fun buildTerrain() {
         val terrain = ModelEntity(
@@ -58,7 +83,18 @@ class VillageEntity : Entity() {
         addChild(terrain)
     }
 
-    // ---------------------------------------------------------------- 玩家田垄（2 块初始田）
+    private fun buildSun() {
+        val sun = Entity()
+        sun.setName("sun")
+        sun.components[TransformComponent::class.java]?.apply {
+            setEulerAngles(EulerAngles(-52f, -32f, 0f))
+        }
+        sun.components[DirectionalLightComponent::class.java] =
+            DirectionalLightComponent(Color4(1f, 0.97f, 0.88f, 1f), 1.1f, true)
+        addChild(sun)
+    }
+
+    // ---------------------------------------------------------------- 田垄（保留几何，作物模型后续填入）
 
     private fun buildFarmPlots() {
         val plots = Entity()
@@ -82,151 +118,39 @@ class VillageEntity : Entity() {
         addChild(plots)
     }
 
-    // ---------------------------------------------------------------- 篱笆与木牌
+    // ---------------------------------------------------------------- 迎宾木牌
 
-    private fun buildFenceAndSign() {
-        // 田垄四周的低矮篱笆桩
-        val fence = Entity()
-        fence.setName("fence")
-        fence.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0f, PLOT_Z))
-
-        val postMesh = MeshResource.createBox(
-            BoxOption(Vector3(0.1f, FENCE_H, 0.1f)).setCornerRadius(0.03f).setName("fence_post")
-        )
-        val postMat = mat("wood", WOOD)
-        val halfW = PLOT_GAP / 2f + PLOT_W / 2f + 0.25f
-        val halfD = PLOT_D / 2f + 0.25f
-
-        var n = 0
-        fun post(x: Float, z: Float) {
-            val p = ModelEntity(postMesh, postMat)
-            p.setName("fence_post_$n")
-            p.components[TransformComponent::class.java]!!.setPosition(Vector3(x, FENCE_H / 2f, z))
-            fence.addChild(p)
-            n++
-        }
-        for (i in 0..4) {
-            val x = -halfW + (2 * halfW) * i / 4f
-            post(x, -halfD)
-            post(x, halfD)
-        }
-        post(-halfW, 0f)
-        post(halfW, 0f)
-        addChild(fence)
-
-        // 迎宾木牌：木柱 + 黄色牌面
+    private fun buildSign() {
         val sign = Entity()
         sign.setName("welcome_sign")
-        sign.components[TransformComponent::class.java]!!.setPosition(Vector3(SIGN_X, 0f, PLOT_Z))
+        sign.components[TransformComponent::class.java]!!.setPosition(Vector3(-2.7f, 0f, -2.9f))
 
-        val pole = ModelEntity(
-            MeshResource.createCylinder(1.1f, 0.06f),
-            mat("wood", WOOD)
-        )
+        val pole = ModelEntity(MeshResource.createCylinder(0.9f, 0.045f), mat("wood_dark", WOOD_DARK))
         pole.setName("sign_pole")
-        pole.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.55f, 0f))
+        pole.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.45f, 0f))
         sign.addChild(pole)
 
         val board = ModelEntity(
             MeshResource.createBox(
-                BoxOption(Vector3(0.9f, 0.5f, 0.08f)).setCornerRadius(0.08f).setName("sign_board")
+                BoxOption(Vector3(0.58f, 0.34f, 0.05f)).setCornerRadius(0.05f).setName("sign_board")
             ),
-            mat("butter", BUTTER)
+            mat("wood_dark", WOOD_DARK)
         )
         board.setName("sign_board_face")
         board.components[TransformComponent::class.java]!!.apply {
-            setPosition(Vector3(0f, 1.05f, 0f))
-            setEulerAngles(EulerAngles(0f, SIGN_BOARD_YAW, 0f))
+            setPosition(Vector3(0f, 0.82f, 0f))
+            setEulerAngles(EulerAngles(0f, 28f, 0f))
         }
         sign.addChild(board)
         addChild(sign)
     }
 
-    // ---------------------------------------------------------------- 玩家小屋
-
-    private fun buildPlayerHouse() {
-        val house = Entity()
-        house.setName("player_house")
-        house.components[TransformComponent::class.java]!!
-            .setPosition(Vector3(HOUSE_X, 0f, HOUSE_Z))
-
-        val wall = ModelEntity(
-            MeshResource.createBox(
-                BoxOption(Vector3(2.2f, 1.7f, 1.8f)).setCornerRadius(0.06f).setName("house_wall")
-            ),
-            mat("cream", CREAM)
-        )
-        wall.setName("house_wall_body")
-        wall.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.85f, 0f))
-        house.addChild(wall)
-
-        val roof = ModelEntity(
-            MeshResource.createBox(
-                BoxOption(Vector3(2.5f, 0.55f, 2.1f)).setCornerRadius(0.1f).setName("house_roof")
-            ),
-            mat("coral", CORAL)
-        )
-        roof.setName("house_roof_top")
-        roof.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 1.98f, 0f))
-        house.addChild(roof)
-
-        val door = ModelEntity(
-            MeshResource.createBox(
-                BoxOption(Vector3(0.55f, 0.95f, 0.06f)).setCornerRadius(0.04f).setName("house_door")
-            ),
-            mat("wood_dark", WOOD_DARK)
-        )
-        door.setName("house_door_face")
-        door.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.48f, 0.92f))
-        house.addChild(door)
-        addChild(house)
-    }
-
-    // ---------------------------------------------------------------- 小镇主街（三间店铺占位）
-
-    private fun buildMainStreet() {
-        val street = Entity()
-        street.setName("main_street")
-        street.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0f, STREET_Z))
-
-        val shopMesh = MeshResource.createBox(
-            BoxOption(Vector3(1.7f, 1.4f, 1.5f)).setCornerRadius(0.06f).setName("shop_body")
-        )
-        val awningMesh = MeshResource.createBox(
-            BoxOption(Vector3(1.9f, 0.18f, 0.5f)).setCornerRadius(0.08f).setName("shop_awning")
-        )
-
-        val shops = listOf(
-            Triple("shop_grocery", PINK, Vector3(-2.6f, 0f, 0f)),
-            Triple("shop_canteen", MINT, Vector3(0f, 0f, -0.4f)),
-            Triple("shop_workshop", LAVENDER, Vector3(2.6f, 0f, 0f)),
-        )
-        for ((name, color, pos) in shops) {
-            val shop = Entity()
-            shop.setName(name)
-            shop.components[TransformComponent::class.java]!!.setPosition(pos)
-
-            val body = ModelEntity(shopMesh, mat("shop_${name}", color))
-            body.setName("${name}_body")
-            body.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.7f, 0f))
-            shop.addChild(body)
-
-            val awning = ModelEntity(awningMesh, mat("awning_${name}", BUTTER))
-            awning.setName("${name}_awning")
-            awning.components[TransformComponent::class.java]!!
-                .setPosition(Vector3(0f, 1.5f, 0.75f))
-            shop.addChild(awning)
-            street.addChild(shop)
-        }
-        addChild(street)
-    }
-
-    // ---------------------------------------------------------------- 码头（木栈板占位）
+    // ---------------------------------------------------------------- 码头
 
     private fun buildDock() {
         val dock = Entity()
         dock.setName("dock")
-        dock.components[TransformComponent::class.java]!!.setPosition(Vector3(DOCK_X, 0f, DOCK_Z))
+        dock.components[TransformComponent::class.java]!!.setPosition(Vector3(5.6f, 0f, -2.2f))
 
         val plankMesh = MeshResource.createBox(
             BoxOption(Vector3(1.2f, 0.12f, 0.55f)).setCornerRadius(0.04f).setName("dock_plank")
@@ -242,6 +166,128 @@ class VillageEntity : Entity() {
         addChild(dock)
     }
 
+    // ---------------------------------------------------------------- 田垄围栏（几何体）
+
+    private fun buildPlotFence() {
+        val fence = Entity()
+        fence.setName("plot_fence")
+        val railMat = mat("wood", WOOD)
+
+        val railMeshX = MeshResource.createBox(
+            BoxOption(Vector3(3.9f, 0.055f, 0.055f)).setCornerRadius(0.02f).setName("rail_x")
+        )
+        val railMeshZ = MeshResource.createBox(
+            BoxOption(Vector3(1.55f, 0.055f, 0.055f)).setCornerRadius(0.02f).setName("rail_z")
+        )
+        val postMesh = MeshResource.createBox(
+            BoxOption(Vector3(0.085f, 0.4f, 0.085f)).setCornerRadius(0.02f).setName("fence_post")
+        )
+        val halfW = 1.95f
+        val halfD = 0.78f
+        val railY = 0.3f
+
+        // 四条横栏
+        fun rail(mesh: MeshResource, pos: Vector3, yaw: Float) {
+            val e = ModelEntity(mesh, railMat)
+            e.setName("rail")
+            e.components[TransformComponent::class.java]!!.apply {
+                setPosition(pos)
+                setEulerAngles(EulerAngles(0f, yaw, 0f))
+            }
+            fence.addChild(e)
+        }
+        rail(railMeshX, Vector3(0f, railY, PLOT_Z - halfD), 0f)
+        rail(railMeshX, Vector3(0f, railY, PLOT_Z + halfD), 0f)
+        rail(railMeshZ, Vector3(-halfW, railY, PLOT_Z), 90f)
+        rail(railMeshZ, Vector3(halfW, railY, PLOT_Z), 90f)
+
+        // 立柱
+        var n = 0
+        fun post(x: Float, z: Float) {
+            val e = ModelEntity(postMesh, railMat)
+            e.setName("post_$n")
+            e.components[TransformComponent::class.java]!!.setPosition(Vector3(x, 0.2f, z))
+            fence.addChild(e)
+            n++
+        }
+        for ((x, z) in listOf(
+            -halfW to PLOT_Z - halfD, -halfW / 2 to PLOT_Z - halfD, 0f to PLOT_Z - halfD,
+            halfW / 2 to PLOT_Z - halfD, halfW to PLOT_Z - halfD,
+            -halfW to PLOT_Z + halfD, 0f to PLOT_Z + halfD, halfW to PLOT_Z + halfD,
+            -halfW to PLOT_Z, halfW to PLOT_Z,
+        )) post(x, z)
+
+        addChild(fence)
+    }
+
+    // ---------------------------------------------------------------- 3D 模型加载
+
+    private suspend fun loadModels() {
+        // ---- 主街店铺（北）----
+        loadModel("models/village/MarketStand_1.glb", Vector3(-2.6f, 0f, -6.2f), yaw = 180f, scale = 0.55f)   // 梅姨杂货摊
+        loadModel("models/village/Inn.glb", Vector3(0f, 0f, -6.6f), yaw = 180f, scale = 0.42f)                // 胖婶食堂
+        loadModel("models/village/Blacksmith.glb", Vector3(2.8f, 0f, -6.2f), yaw = 180f, scale = 0.42f)       // 锤叔铁匠铺
+
+        // ---- 玩家小屋（左后）----
+        loadModel("models/village/House_1.glb", Vector3(-4.2f, 0f, -1.2f), yaw = 115f, scale = 0.40f)
+        loadModel("models/village/Barrel.glb", Vector3(-3.2f, 0f, -0.4f), scale = 0.6f)
+        loadModel("models/village/Crate.glb", Vector3(-5.1f, 0f, -0.6f), scale = 0.6f)
+
+        // ---- 中央广场 ----
+        loadModel("models/village/Well.glb", Vector3(0f, 0f, -4.2f), scale = 0.6f)
+        loadModel("models/village/Hay.glb", Vector3(3.6f, 0f, -4.6f), scale = 0.5f)
+        loadModel("models/village/Cart.glb", Vector3(-1.9f, 0f, -4.9f), yaw = 70f, scale = 0.55f)
+
+        // ---- 石板小路：田垄 → 广场 → 主街 ----
+        loadModel("models/village/Path_Square.glb", Vector3(0f, 0.02f, -3.5f), scale = 0.8f)
+        loadModel("models/village/Path_Straight.glb", Vector3(0f, 0.02f, -4.9f), scale = 0.8f)
+        loadModel("models/village/Path_Straight.glb", Vector3(0f, 0.02f, -5.6f), scale = 0.8f)
+
+        // ---- 远处风车（地标）----
+        loadModel("models/village/Mill.glb", Vector3(6.8f, 0f, -7.8f), yaw = -30f, scale = 0.5f)
+
+        // ---- 田垄简易围栏（低矮木栏，几何体拼装更整齐） ----
+        buildPlotFence()
+
+        // ---- 边缘树林与灌木（环绕氛围） ----
+        loadModel("models/nature/CommonTree_1.glb", Vector3(-6.4f, 0f, -5.4f), scale = 1.15f)
+        loadModel("models/nature/CommonTree_3.glb", Vector3(-6.9f, 0f, -2.6f), scale = 1.0f)
+        loadModel("models/nature/CommonTree_2.glb", Vector3(-6.2f, 0f, 0.8f), scale = 1.25f)
+        loadModel("models/nature/CommonTree_4.glb", Vector3(5.9f, 0f, -0.6f), scale = 1.1f)
+        loadModel("models/nature/CommonTree_5.glb", Vector3(6.6f, 0f, -4.8f), scale = 1.0f)
+        loadModel("models/nature/PineTree_1.glb", Vector3(-3.4f, 0f, -8.2f), scale = 1.1f)
+        loadModel("models/nature/PineTree_2.glb", Vector3(3.9f, 0f, -8.4f), scale = 1.2f)
+        loadModel("models/nature/PineTree_3.glb", Vector3(-0.8f, 0f, -8.8f), scale = 1.0f)
+        loadModel("models/nature/Bush_1.glb", Vector3(-2.6f, 0f, 1.0f))
+        loadModel("models/nature/Bush_2.glb", Vector3(2.8f, 0f, 0.6f))
+        loadModel("models/nature/Rock_1.glb", Vector3(4.6f, 0f, -5.8f))
+        loadModel("models/nature/Rock_2.glb", Vector3(-5.4f, 0f, -4.0f))
+        loadModel("models/nature/Rock_3.glb", Vector3(1.6f, 0f, 0.9f))
+    }
+
+    /**
+     * 加载一个 GLB 模型并放置到村中。
+     * @param uri assets 内路径（不含 asset:// 前缀）
+     */
+    private suspend fun loadModel(
+        uri: String,
+        position: Vector3,
+        yaw: Float = 0f,
+        scale: Float = 1f,
+    ) {
+        val entity = Entity.loadSuspend("asset://$uri")
+        if (!valid) {
+            entity.destroy(true)
+            return
+        }
+        entity.components[TransformComponent::class.java]?.apply {
+            setPosition(position)
+            setEulerAngles(EulerAngles(0f, yaw, 0f))
+            setScaleVector(Vector3(scale, scale, scale))
+        }
+        addChild(entity)
+    }
+
     private companion object {
         // ---- 尺寸与布局常量（米） ----
         const val PLOT_W = 1.3f
@@ -249,29 +295,12 @@ class VillageEntity : Entity() {
         const val PLOT_D = 0.9f
         const val PLOT_GAP = 2.0f
         const val PLOT_Z = -2.4f
-
-        const val FENCE_H = 0.45f
         const val SIGN_X = 2.3f
-        const val SIGN_BOARD_YAW = -18f
 
-        const val HOUSE_X = -4.2f
-        const val HOUSE_Z = -1.2f
-
-        const val STREET_Z = -6.2f
-
-        const val DOCK_X = 5.6f
-        const val DOCK_Z = -2.2f
-
-        // ---- 粉彩调色板 ----
+        // ---- 粉彩调色板（保留几何体用） ----
         val SOIL = Color4(0.60f, 0.45f, 0.34f, 1f)       // 田垄棕
         val WOOD = Color4(0.87f, 0.74f, 0.58f, 1f)       // 原木
-        val WOOD_DARK = Color4(0.62f, 0.48f, 0.36f, 1f)  // 深木
-        val BUTTER = Color4(0.99f, 0.93f, 0.72f, 1f)     // 奶油黄
-        val CREAM = Color4(0.98f, 0.95f, 0.88f, 1f)      // 奶白墙
-        val CORAL = Color4(0.94f, 0.63f, 0.60f, 1f)      // 珊瑚红屋顶
-        val PINK = Color4(0.96f, 0.80f, 0.82f, 1f)       // 梅姨杂货
-        val MINT = Color4(0.78f, 0.93f, 0.85f, 1f)       // 胖婶食堂
-        val LAVENDER = Color4(0.85f, 0.82f, 0.95f, 1f)   // 锤叔作坊
+        val WOOD_DARK = Color4(0.55f, 0.42f, 0.30f, 1f)  // 深木
         val PLANK = Color4(0.82f, 0.69f, 0.52f, 1f)      // 栈木板
     }
 }
