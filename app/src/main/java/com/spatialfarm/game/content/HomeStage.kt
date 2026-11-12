@@ -213,6 +213,37 @@ fun HomeStage() {
                                     Text(text = "🪴 扩田 ¥$price", fontSize = 26.sp)
                                 }
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = { sceneHolder.village?.toggleDiorama() }
+                            ) {
+                                Text(text = "🔭 沙盘", fontSize = 26.sp)
+                            }
+                        }
+
+                        // 新手引导线（按存档状态自动推进）
+                        val guide = when {
+                            GameState.produceTotal() > 0 ->
+                                "👉 收成在手！去「🧺 卖菜」换钱，或接「📋 委托」赚更多"
+                            GameState.harvestLog.isEmpty() && GameState.seeds.isEmpty() ->
+                                "👉 第一步：点「🏪 种子」，买一包生菜种子（¥50）"
+                            sceneHolder.village?.plots?.any { it.cropState() == 5 } == true ->
+                                "👉 菜熟了！点田垄（或「👆 照料」）收获 🧺"
+                            sceneHolder.village?.plots?.any { it.cropState() in 1..4 } == true ->
+                                "👉 浇水能让菜长得更快、品质更好 💧（防老王就买稻草人）"
+                            GameState.seeds.isNotEmpty() ->
+                                "👉 选好种子，点田垄（或「👆 照料」）播种 🌱"
+                            else ->
+                                null
+                        }
+                        if (guide != null) {
+                            Text(
+                                text = guide,
+                                color = PicoTheme.colorScheme.labelPrimary,
+                                style = PicoTheme.typography.bodyMedium.copy(fontSize = 26.sp),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            )
                         }
 
                         // 种子快捷栏：点选种子 → 点田垄播种

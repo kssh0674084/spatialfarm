@@ -105,6 +105,43 @@ class VillageEntity : Entity() {
         if (GameState.hasScarecrow) placeScarecrow()
     }
 
+    private var diorama = false
+    private var dioramaJob: kotlinx.coroutines.Job? = null
+
+    /** 沙盘模式开关：村庄缩小到桌面尺度（天空球反向补偿保持包裹） */
+    fun toggleDiorama() {
+        diorama = !diorama
+        val target = if (diorama) 0.22f else 1f
+        GameState.postHint(if (diorama) "🔭 沙盘视角：俯瞰整个村庄" else "回到真实尺度")
+        dioramaJob?.cancel()
+        dioramaJob = ioScope.launch {
+            val start = scaleCurrent
+            val steps = 24
+            repeat(steps + 1) { i ->
+                val t = i.toFloat() / steps
+                val eased = t * t * (3 - 2 * t)
+                val s = start + (target - start) * eased
+                applyDioramaScale(s)
+                kotlinx.coroutines.delay(25)
+            }
+        }
+    }
+
+    private var scaleCurrent = 1f
+
+    private fun applyDioramaScale(s: Float) {
+        scaleCurrent = s
+        components[TransformComponent::class.java]?.apply {
+            setScaleVector(Vector3(s, s, s))
+            setPosition(Vector3(0f, 1.05f * (1f - s), 0f))
+        }
+        skyEntity?.components?.get(TransformComponent::class.java)?.apply {
+            val inv = 1f / s
+            setScaleVector(Vector3(inv, inv, inv))
+            setPosition(Vector3(0f, -2f * inv, 0f))
+        }
+    }
+
     /** 立稻草人（购买后调用）：在田边放一个草垛作为视觉标志 */
     fun placeScarecrow() {
         ioScope.launch {
@@ -113,6 +150,8 @@ class VillageEntity : Entity() {
     }
 
     // ---------------------------------------------------------------- 天空球
+
+    private var skyEntity: Entity? = null
 
     private fun buildSky() {
         val sky = ModelEntity(
@@ -124,6 +163,7 @@ class VillageEntity : Entity() {
         )
         sky.setName("sky_dome")
         sky.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, -2f, 0f))
+        skyEntity = sky
         addChild(sky)
     }
 
