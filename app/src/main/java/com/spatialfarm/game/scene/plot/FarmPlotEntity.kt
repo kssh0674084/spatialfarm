@@ -15,6 +15,7 @@ import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.data.PlantDef
+import com.spatialfarm.game.scene.audio.Sfx
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -66,6 +67,7 @@ class FarmPlotEntity(
             )
         components[InteractableComponent::class.java] = InteractableComponent()
         components[HoverEffectComponent::class.java] = HoverEffectComponent()
+        Sfx.attachPointSource(this, volume = 0.7f)
 
         // 生长心跳
         scope.launch {
@@ -177,11 +179,13 @@ class FarmPlotEntity(
         stageProgress += stageDuration(p) * boost
         val fertTag = if (fertilized) " 🌱施肥" else ""
         snapshot()
+        Sfx.playWater(this)
         GameState.postHint("浇水 💧 ${p.emoji}${p.name} 品质 $quality$fertTag")
     }
 
     private fun harvest(p: PlantDef) {
         val bonus = if (quality >= 60) 1 else 0
+        Sfx.playHarvest(this)
         GameState.addProduce(p.id, 1 + bonus)
         GameState.postHint("收获 ${p.emoji}${p.name} ×${1 + bonus}！去收购站卖钱")
         plant = null

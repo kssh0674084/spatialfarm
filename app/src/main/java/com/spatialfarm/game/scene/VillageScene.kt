@@ -16,10 +16,12 @@ import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
+import com.spatialfarm.game.scene.audio.Sfx
 import com.spatialfarm.game.scene.neighbor.LaoWangEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -63,8 +65,25 @@ class VillageEntity : Entity() {
         buildSign()
         buildDock()
         buildLaoWang()
+        buildAmbience()
         // 3D 模型异步加载（不阻塞首帧）
         ioScope.launch { loadModels() }
+    }
+
+    // ---------------------------------------------------------------- 环境音（鸟鸣来自树林方向）
+
+    private fun buildAmbience() {
+        val birds = Entity()
+        birds.setName("ambient_birds")
+        birds.components[TransformComponent::class.java]!!.setPosition(Vector3(-5.5f, 2.2f, -4.5f))
+        Sfx.attachPointSource(birds, volume = 0.5f)
+        addChild(birds)
+        ioScope.launch {
+            while (valid) {
+                Sfx.playBirdAmbient(birds)
+                delay(12_000) // birds.wav 时长 12s，循环
+            }
+        }
     }
 
     // ---------------------------------------------------------------- 邻居老王
