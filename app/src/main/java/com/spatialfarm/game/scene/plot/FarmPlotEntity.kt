@@ -125,6 +125,30 @@ class FarmPlotEntity(
         water(p)
     }
 
+    /** 孩子帮忙浇水：品质 +10（不推进阶段，孩子力气小）。 */
+    fun helpWaterByChild() {
+        val p = plant ?: return
+        if (stage >= STAGES) return
+        quality = (quality + 10).coerceAtMost(100)
+        snapshot()
+    }
+
+    /** 孩子帮忙收菜：成熟则收进篮子，返回作物；非成熟返回 null。 */
+    fun helpHarvestByChild(): PlantDef? {
+        val p = plant ?: return null
+        if (stage < STAGES) return null
+        GameState.addProduce(p.id, 1)
+        plant = null
+        plantRoot?.destroy(true)
+        plantRoot = null
+        stage = 0
+        stageProgress = 0f
+        quality = 0
+        generation++
+        snapshot()
+        return p
+    }
+
     /** 被老王偷菜：成熟作物被拿走（不入篮），返回被偷的作物；非成熟返回 null。 */
     fun thiefHarvest(): PlantDef? {
         val p = plant ?: return null

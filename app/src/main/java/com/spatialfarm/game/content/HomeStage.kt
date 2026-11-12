@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +36,7 @@ import com.pico.spatial.ui.platform.containers.LocalSpatialNavigator
 import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.data.plantById
 import com.spatialfarm.game.scene.VillageEntity
+import com.spatialfarm.game.scene.family.ChildEntity
 import com.spatialfarm.game.scene.neighbor.StealSpotEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import com.spatialfarm.game.scene.props.QuestBoardEntity
@@ -82,6 +86,10 @@ fun HomeStage() {
                         }
                         if (e is QuestBoardEntity) {
                             navigator.openWindowContainer(WINDOW_ID_QUESTS)
+                            break
+                        }
+                        if (e is ChildEntity) {
+                            e.onTap()
                             break
                         }
                         e = e.getParent()
@@ -218,6 +226,19 @@ fun HomeStage() {
                                 onClick = { sceneHolder.village?.toggleDiorama() }
                             ) {
                                 Text(text = "🔭 沙盘", fontSize = 26.sp)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            var childIdx by remember { mutableIntStateOf(0) }
+                            Button(
+                                onClick = {
+                                    val kids = sceneHolder.village?.children ?: return@Button
+                                    if (kids.isNotEmpty()) {
+                                        kids[childIdx % kids.size].onTap()
+                                        childIdx++
+                                    }
+                                }
+                            ) {
+                                Text(text = "🧒 孩子", fontSize = 26.sp)
                             }
                         }
 

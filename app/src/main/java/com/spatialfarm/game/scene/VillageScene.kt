@@ -17,6 +17,8 @@ import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.scene.audio.Sfx
+import com.spatialfarm.game.scene.family.ChildEntity
+import com.spatialfarm.game.scene.family.ChildKind
 import com.spatialfarm.game.scene.neighbor.LaoWangEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import com.spatialfarm.game.scene.props.QuestBoardEntity
@@ -42,6 +44,9 @@ class VillageEntity : Entity() {
     var laoWang: LaoWangEntity? = null
         private set
 
+    /** 家里的两个孩子（可点按帮忙） */
+    val children = mutableListOf<ChildEntity>()
+
     /** 场景级材质注册表：同一颜色只创建一次材质（资源复用规范）。
      *  注意：必须声明在 init 之前（Kotlin 按声明顺序初始化）。 */
     private val materials = mutableMapOf<String, Material>()
@@ -66,12 +71,27 @@ class VillageEntity : Entity() {
         buildSign()
         buildDock()
         buildLaoWang()
+        buildChildren()
         buildQuestBoard()
         buildAmbience()
         // 3D 模型异步加载（不阻塞首帧）
         ioScope.launch { loadModels() }
         // 昼夜循环
         ioScope.launch { clockLoop() }
+    }
+
+    // ---------------------------------------------------------------- 孩子（小勇/小花）
+
+    private fun buildChildren() {
+        val daughter = ChildEntity(ChildKind.DAUGHTER) { plots }
+        daughter.components[TransformComponent::class.java]!!.setPosition(Vector3(-3.35f, 0f, 0.2f))
+        addChild(daughter)
+        children.add(daughter)
+
+        val son = ChildEntity(ChildKind.SON) { plots }
+        son.components[TransformComponent::class.java]!!.setPosition(Vector3(-4.1f, 0f, 0.75f))
+        addChild(son)
+        children.add(son)
     }
 
     // ---------------------------------------------------------------- 广场委托板
