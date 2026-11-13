@@ -23,6 +23,8 @@ import com.spatialfarm.game.scene.family.ChildKind
 import com.spatialfarm.game.scene.neighbor.LaoWangEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import com.spatialfarm.game.scene.props.QuestBoardEntity
+import com.spatialfarm.game.scene.props.ShopKind
+import com.spatialfarm.game.scene.props.ShopPointEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -77,6 +79,7 @@ class VillageEntity : Entity() {
         buildLaoWang()
         buildChildren()
         buildQuestBoard()
+        buildShopPoints()
         buildAmbience()
         spawnWildlife()
         startBgm()
@@ -100,6 +103,21 @@ class VillageEntity : Entity() {
         son.components[TransformComponent::class.java]!!.setPosition(Vector3(-4.1f, 0f, 0.75f))
         addChild(son)
         children.add(son)
+    }
+
+    // ---------------------------------------------------------------- 店铺交互点（点房子开店）
+
+    private fun buildShopPoints() {
+        shopPoint(ShopKind.SEED, Vector3(-2.6f, 0f, -6.2f), Vector3(2.1f, 2.2f, 1.8f))
+        shopPoint(ShopKind.BUYER, Vector3(0f, 0f, -6.6f), Vector3(2.7f, 2.6f, 2.3f))
+        shopPoint(ShopKind.TOOL, Vector3(2.8f, 0f, -6.2f), Vector3(2.3f, 2.2f, 2.0f))
+    }
+
+    private fun shopPoint(kind: ShopKind, base: Vector3, size: Vector3) {
+        val e = ShopPointEntity(kind, size)
+        e.components[TransformComponent::class.java]!!
+            .setPosition(Vector3(base.x, size.y / 2f, base.z))
+        addChild(e)
     }
 
     // ---------------------------------------------------------------- 世界生命（飞鸟/蝴蝶/炊烟）

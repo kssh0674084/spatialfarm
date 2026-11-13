@@ -173,7 +173,7 @@ class FarmPlotEntity(
         if (plant != null || locked) return false
         val def = com.spatialfarm.game.data.plantById(plantId) ?: return false
         if (!GameState.consumeSeed(def.id)) {
-            GameState.postHint("没有${def.name}种子了，去商店补货 🏪")
+            GameState.postHint("没有${def.name}种子了，去梅姨杂货铺补货")
             return false
         }
         plant = def
@@ -214,11 +214,11 @@ class FarmPlotEntity(
     private fun plantFromSelection() {
         val def = GameState.selectedPlant()
         if (def == null) {
-            GameState.postHint("先去种子商店买种子吧 🏪")
+            GameState.postHint("去梅姨杂货铺买种子吧（点她的房子）")
             return
         }
         if (!GameState.consumeSeed(def.id)) {
-            GameState.postHint("${def.name}种子用完了，去商店补货 🏪")
+            GameState.postHint("${def.name}种子用完了，去梅姨杂货铺补货")
             return
         }
         plant = def

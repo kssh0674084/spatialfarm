@@ -42,28 +42,34 @@ import com.spatialfarm.game.scene.family.ChildEntity
 import com.spatialfarm.game.scene.neighbor.StealSpotEntity
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import com.spatialfarm.game.scene.props.QuestBoardEntity
+import com.spatialfarm.game.scene.props.ShopKind
+import com.spatialfarm.game.scene.props.ShopPointEntity
 import com.spatialfarm.game.window.WINDOW_ID_ALMANAC
 import com.spatialfarm.game.window.WINDOW_ID_BUYER
+import com.spatialfarm.game.window.WINDOW_ID_MAP
 import com.spatialfarm.game.window.WINDOW_ID_QUESTS
 import com.spatialfarm.game.window.WINDOW_ID_SEED_SHOP
 import com.spatialfarm.game.window.WINDOW_ID_TOOLSHOP
 
-/**
- * 主场景：村口小院 + 标题/HUD 面板。
- * 点按远方 3D 田垄 → 播种 / 浇水 / 收获（向上寻找 FarmPlotEntity）。
- */
 private class SceneHolder {
     var village: VillageEntity? = null
     var menuEntity: Entity? = null
 }
 
+/**
+ * 主场景：
+ * - 村子里的**房子就是店**（点梅姨摊=买种子/胖婶食堂=卖菜/锤叔作坊=工具/委托板=接任务）
+ * - HUD 改为**呼出式**：默认只有一个小「☰ 菜单」按钮，点开才有面板，面板上 ✕ 收起
+ * - 点田垄弹动作菜单（选种/浇水/收获）
+ */
 @Composable
 fun HomeStage() {
     val context = LocalContext.current
     val navigator = LocalSpatialNavigator.current
-    // 场景生命周期管理：离开组合时销毁村庄，防止重复加载导致内存膨胀
     val sceneHolder = remember { SceneHolder() }
     var plotMenu by remember { mutableStateOf<FarmPlotEntity?>(null) }
+    var menuOpen by remember { mutableStateOf(false) }
+
     DisposableEffect(Unit) {
         GameState.onScarecrowBought = {
             sceneHolder.village?.placeScarecrow()
@@ -74,36 +80,7 @@ fun HomeStage() {
             sceneHolder.village = null
         }
     }
-    // 演示模式：应用内自动表演（录屏用，无需外部自动化）
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (!GameState.demoMode) return@LaunchedEffect
-        kotlinx.coroutines.delay(2500)
-        val nav = navigator
-        val village = sceneHolder.village ?: return@LaunchedEffect
-        // 1) 浇水两次（水花特效特写）
-        village.plots.firstOrNull { it.cropState() in 1..4 }?.let {
-            it.onTap(); kotlinx.coroutines.delay(1800); it.onTap()
-        }
-        kotlinx.coroutines.delay(2200)
-        // 2) 成熟收获（闪光）
-        village.plots.firstOrNull { it.cropState() == 5 }?.let { it.onTap() }
-        kotlinx.coroutines.delay(2200)
-        // 3) 卖菜窗口 + 自动全卖
-        nav.openWindowContainer(WINDOW_ID_BUYER)
-        kotlinx.coroutines.delay(2600)
-        GameState.sellAll()
-        kotlinx.coroutines.delay(1800)
-        // 4) 图鉴知识卡
-        nav.openWindowContainer(WINDOW_ID_ALMANAC)
-        kotlinx.coroutines.delay(2800)
-        // 5) 沙盘小人国
-        village.toggleDiorama()
-        kotlinx.coroutines.delay(3400)
-        village.toggleDiorama()
-        kotlinx.coroutines.delay(1600)
-        // 6) 孩子帮忙收尾
-        village.children.firstOrNull()?.onTap()
-    }
+
     SpatialView(
         modifier =
             Modifier.pointerInput(Unit) {
@@ -112,7 +89,6 @@ fun HomeStage() {
                     var handled = false
                     while (e != null) {
                         if (e is FarmPlotEntity) {
-                            // 选择性交互：先弹动作菜单，由玩家决定做什么
                             plotMenu = e
                             val idx = sceneHolder.village?.plots?.indexOf(e) ?: -1
                             if (idx >= 0) {
@@ -130,6 +106,15 @@ fun HomeStage() {
                             handled = true
                             break
                         }
+                        if (e is ShopPointEntity) {
+                            when (e.shopKind()) {
+                                ShopKind.SEED -> navigator.openWindowContainer(WINDOW_ID_SEED_SHOP)
+                                ShopKind.BUYER -> navigator.openWindowContainer(WINDOW_ID_BUYER)
+                                ShopKind.TOOL -> navigator.openWindowContainer(WINDOW_ID_TOOLSHOP)
+                            }
+                            handled = true
+                            break
+                        }
                         if (e is QuestBoardEntity) {
                             navigator.openWindowContainer(WINDOW_ID_QUESTS)
                             handled = true
@@ -142,39 +127,252 @@ fun HomeStage() {
                         }
                         e = e.getParent()
                     }
-                    if (!handled) plotMenu = null  // 点空白处收起菜单
+                    if (!handled) plotMenu = null
                 }
             },
         initial = { content, attachments ->
             val village = sceneHolder.village ?: VillageEntity().also { sceneHolder.village = it }
             content.addEntity(village)
 
-            val menuAttachment = attachments.entity(id = "plot_menu")
-            menuAttachment?.apply {
-                components[TransformComponent::class.java]?.setPosition(Vector3(0f, -10f, 0f))
-                content.addEntity(this)
-            }
-            sceneHolder.menuEntity = menuAttachment
-
-            val titleAttachment = attachments.entity(id = "title")
-            titleAttachment?.apply {
-                components[TransformComponent::class.java]?.apply {
-                    setPosition(Vector3(0f, 1.9f, -3.5f))
+            fun place(id: String, pos: Vector3) {
+                attachments.entity(id = id)?.apply {
+                    components[TransformComponent::class.java]?.setPosition(pos)
+                    content.addEntity(this)
                 }
-                content.addEntity(this)
             }
+            place("menu_btn", Vector3(0.5f, 1.2f, -0.85f))
+            place("panel", Vector3(0f, 1.5f, -1.4f))
+            place("plot_menu", Vector3(0f, -10f, 0f))
+            // 店铺招牌（房子上方的功能提示）
+            place("sign_seed", Vector3(-2.6f, 2.28f, -6.2f))
+            place("sign_buy", Vector3(0f, 2.7f, -6.5f))
+            place("sign_tool", Vector3(2.8f, 2.28f, -6.2f))
+
+            sceneHolder.menuEntity = attachments.entity(id = "plot_menu")
         },
         attachments = {
-            // 田垄动作菜单（点田垄弹出：先选择，再执行）
+            // ── 呼出按钮（常驻小按钮）────────────────────────
+            AttachmentPanel(id = "menu_btn") {
+                Button(onClick = { menuOpen = true }) {
+                    Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        Text(text = "☰ 菜单", fontSize = 30.sp)
+                    }
+                }
+            }
+
+            // ── 主面板（呼出显示，✕/按钮收起）────────────────
+            AttachmentPanel(id = "panel") {
+                if (!menuOpen) {
+                    Box(modifier = Modifier.size(1.dp))
+                } else {
+                    Box(
+                        modifier =
+                            Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .backgroundMaterial(true, Material.Regular),
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(horizontal = 26.dp, vertical = 18.dp),
+                        ) {
+                            // 标题行 + 关闭
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "🌱 小小田园 · 清风岛",
+                                    color = PicoTheme.colorScheme.labelPrimary,
+                                    style = PicoTheme.typography.titleMedium.copy(fontSize = 34.sp),
+                                )
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Button(onClick = { menuOpen = false }) {
+                                    Text(text = "✕", fontSize = 26.sp)
+                                }
+                            }
+
+                            // 钱包 / 篮子
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 8.dp),
+                            ) {
+                                Text(
+                                    text = "💰 ¥${GameState.wallet}",
+                                    color = PicoTheme.colorScheme.labelPrimary,
+                                    style = PicoTheme.typography.titleMedium.copy(fontSize = 32.sp),
+                                )
+                                Spacer(modifier = Modifier.width(18.dp))
+                                Text(
+                                    text = "🧺 ${GameState.produceTotal()}",
+                                    color = PicoTheme.colorScheme.labelPrimary,
+                                    style = PicoTheme.typography.titleMedium.copy(fontSize = 32.sp),
+                                )
+                            }
+
+                            // 田垄状态栏
+                            run { GameState.plotRevision }
+                            val v = sceneHolder.village
+                            if (v != null) {
+                                val line = v.plots.take(GameState.plotsOwned).mapIndexed { i, plot ->
+                                    when (val st = plot.cropState()) {
+                                        0 -> "田${i + 1}·空"
+                                        5 -> "田${i + 1}·✅"
+                                        else -> "田${i + 1}·🌱$st/4"
+                                    }
+                                }.joinToString(" ")
+                                Text(
+                                    text = "🌾 $line",
+                                    color = PicoTheme.colorScheme.labelPrimary,
+                                    style = PicoTheme.typography.bodyMedium.copy(fontSize = 22.sp),
+                                    modifier = Modifier.padding(top = 6.dp),
+                                )
+                            }
+
+                            // 功能按钮（店铺已移到世界里：点房子开店）
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 10.dp),
+                            ) {
+                                Button(onClick = { navigator.openWindowContainer(WINDOW_ID_MAP) }) {
+                                    Text(text = "🗺️ 地图", fontSize = 26.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = { navigator.openWindowContainer(WINDOW_ID_ALMANAC) }) {
+                                    Text(text = "📕 图鉴", fontSize = 26.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = { navigator.openWindowContainer(WINDOW_ID_QUESTS) }) {
+                                    Text(text = "📋 委托", fontSize = 26.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = {
+                                        val plots = sceneHolder.village?.plots ?: return@Button
+                                        val target =
+                                            plots.firstOrNull { it.cropState() in 1..5 }
+                                                ?: plots.firstOrNull()
+                                        target?.onTap()
+                                    }
+                                ) {
+                                    Text(text = "🌱 一键照料", fontSize = 24.sp)
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 8.dp),
+                            ) {
+                                GameState.nextPlotPrice()?.let { price ->
+                                    Button(
+                                        onClick = {
+                                            GameState.buyNextPlot()?.let { idx ->
+                                                sceneHolder.village?.plots?.getOrNull(idx)?.unlock()
+                                            }
+                                        }
+                                    ) {
+                                        Text(text = "🪴 扩田 ¥$price", fontSize = 24.sp)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = { sceneHolder.village?.toggleDiorama() }) {
+                                    Text(text = "🔭 沙盘", fontSize = 24.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                var childIdx by remember { mutableIntStateOf(0) }
+                                Button(
+                                    onClick = {
+                                        val kids = sceneHolder.village?.children ?: return@Button
+                                        if (kids.isNotEmpty()) {
+                                            kids[childIdx % kids.size].onTap()
+                                            childIdx++
+                                        }
+                                    }
+                                ) {
+                                    Text(text = "🧒 孩子", fontSize = 24.sp)
+                                }
+                            }
+
+                            // 种子快捷栏（一键照料默认用选中的种子）
+                            if (GameState.seeds.isNotEmpty()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                ) {
+                                    Text(
+                                        text = "选种：",
+                                        color = PicoTheme.colorScheme.labelSecondary,
+                                        style = PicoTheme.typography.bodySmall.copy(fontSize = 22.sp),
+                                    )
+                                    for ((seedId, count) in GameState.seeds) {
+                                        val def = plantById(seedId) ?: continue
+                                        val selected = GameState.selectedSeedId == seedId
+                                        Button(
+                                            onClick = { GameState.selectSeed(seedId) },
+                                            modifier = Modifier.padding(horizontal = 3.dp),
+                                        ) {
+                                            Text(
+                                                text = (if (selected) "✓" else "") + "${def.emoji}×$count",
+                                                fontSize = 24.sp,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 新手引导
+                            val guide = when {
+                                sceneHolder.village?.plots?.any { it.cropState() == 5 } == true ->
+                                    "👉 菜熟了！点田垄打开菜单收获 🧺"
+                                sceneHolder.village?.plots?.any { it.cropState() in 1..4 } == true ->
+                                    "👉 点田垄打开菜单浇水 💧"
+                                GameState.seeds.isNotEmpty() &&
+                                    sceneHolder.village?.plots?.any { it.cropState() == 0 } == true ->
+                                    "👉 点田垄播种，或按「🌱 一键照料」"
+                                GameState.produceTotal() > 0 ->
+                                    "👉 去胖婶食堂卖菜，或接委托"
+                                GameState.seeds.isEmpty() ->
+                                    "👉 去梅姨杂货铺买种子（点房子）"
+                                else -> null
+                            }
+                            if (guide != null) {
+                                Text(
+                                    text = guide,
+                                    color = PicoTheme.colorScheme.labelPrimary,
+                                    style = PicoTheme.typography.bodyMedium.copy(fontSize = 24.sp),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                )
+                            }
+                            Text(
+                                text = GameState.hint,
+                                color = PicoTheme.colorScheme.labelSecondary,
+                                style = PicoTheme.typography.bodySmall.copy(fontSize = 20.sp),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── 店铺招牌（点招牌=开店，抬头就能看到）──────────
+            AttachmentPanel(id = "sign_seed") {
+                ShopSign("🏪 梅姨·买种子") { navigator.openWindowContainer(WINDOW_ID_SEED_SHOP) }
+            }
+            AttachmentPanel(id = "sign_buy") {
+                ShopSign("🍲 胖婶·卖蔬菜") { navigator.openWindowContainer(WINDOW_ID_BUYER) }
+            }
+            AttachmentPanel(id = "sign_tool") {
+                ShopSign("🛠️ 锤叔·买工具") { navigator.openWindowContainer(WINDOW_ID_TOOLSHOP) }
+            }
+
+            // ── 田垄动作菜单 ────────────────────────────────
             AttachmentPanel(id = "plot_menu") {
                 val target = plotMenu
                 if (target == null) {
                     Box(modifier = Modifier.size(1.dp))
                 } else {
                     Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .backgroundMaterial(true, Material.Regular),
+                        modifier =
+                            Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .backgroundMaterial(true, Material.Regular),
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -195,35 +393,41 @@ fun HomeStage() {
                                 st == 0 -> {
                                     if (GameState.seeds.isEmpty()) {
                                         Text(
-                                            text = "没有种子了，去「🏪 种子」买",
+                                            text = "没有种子了，去梅姨杂货铺买",
                                             color = PicoTheme.colorScheme.labelSecondary,
                                             style = PicoTheme.typography.bodySmall.copy(fontSize = 22.sp),
                                         )
                                     }
                                     for ((seedId, count) in GameState.seeds) {
                                         val def = plantById(seedId) ?: continue
-                                        Button(onClick = {
-                                            target.plantSeedById(seedId)
-                                            plotMenu = null
-                                        }) {
+                                        Button(
+                                            onClick = {
+                                                target.plantSeedById(seedId)
+                                                plotMenu = null
+                                            }
+                                        ) {
                                             Text(text = "🌱 ${def.emoji}${def.name} ×$count", fontSize = 24.sp)
                                         }
                                         Spacer(modifier = Modifier.size(6.dp))
                                     }
                                 }
                                 st == 5 -> {
-                                    Button(onClick = {
-                                        target.tapHarvest()
-                                        plotMenu = null
-                                    }) {
+                                    Button(
+                                        onClick = {
+                                            target.tapHarvest()
+                                            plotMenu = null
+                                        }
+                                    ) {
                                         Text(text = "🧺 收获", fontSize = 26.sp)
                                     }
                                 }
                                 else -> {
-                                    Button(onClick = {
-                                        target.tapWater()
-                                        plotMenu = null
-                                    }) {
+                                    Button(
+                                        onClick = {
+                                            target.tapWater()
+                                            plotMenu = null
+                                        }
+                                    ) {
                                         Text(text = "💧 浇水", fontSize = 26.sp)
                                     }
                                 }
@@ -236,238 +440,15 @@ fun HomeStage() {
                     }
                 }
             }
-
-            AttachmentPanel(id = "title") {
-                val navigator = LocalSpatialNavigator.current
-                Box(
-                    modifier =
-                        Modifier
-                            .padding(horizontal = 24.dp, vertical = 16.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .backgroundMaterial(true, Material.Regular),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(horizontal = 36.dp, vertical = 20.dp),
-                    ) {
-                        Text(
-                            text = "🌱 小小田园",
-                            color = PicoTheme.colorScheme.labelPrimary,
-                            style = PicoTheme.typography.titleLarge.copy(fontSize = 64.sp),
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text = "清风岛 · 村口小院",
-                            color = PicoTheme.colorScheme.labelSecondary,
-                            style = PicoTheme.typography.bodyLarge.copy(fontSize = 30.sp),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        )
-
-                        // 第一行：钱包 / 收成
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 18.dp),
-                        ) {
-                            Text(
-                                text = "💰 ¥${GameState.wallet}",
-                                color = PicoTheme.colorScheme.labelPrimary,
-                                style = PicoTheme.typography.titleMedium.copy(fontSize = 36.sp),
-                            )
-                            Spacer(modifier = Modifier.width(20.dp))
-                            Text(
-                                text = "🧺 ${GameState.produceTotal()}",
-                                color = PicoTheme.colorScheme.labelPrimary,
-                                style = PicoTheme.typography.titleMedium.copy(fontSize = 36.sp),
-                            )
-                        }
-
-                        // 第二行：功能窗口
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 10.dp),
-                        ) {
-                            Button(
-                                onClick = { navigator.openWindowContainer(WINDOW_ID_SEED_SHOP) }
-                            ) {
-                                Text(text = "🏪 种子", fontSize = 28.sp)
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Button(
-                                onClick = { navigator.openWindowContainer(WINDOW_ID_BUYER) }
-                            ) {
-                                Text(text = "🧺 卖菜", fontSize = 28.sp)
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Button(
-                                onClick = { navigator.openWindowContainer(WINDOW_ID_ALMANAC) }
-                            ) {
-                                Text(text = "📕 图鉴", fontSize = 28.sp)
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Button(
-                                onClick = { navigator.openWindowContainer(WINDOW_ID_TOOLSHOP) }
-                            ) {
-                                Text(text = "🛠️ 工具", fontSize = 28.sp)
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Button(
-                                onClick = { navigator.openWindowContainer(WINDOW_ID_QUESTS) }
-                            ) {
-                                Text(text = "📋 委托", fontSize = 28.sp)
-                            }
-                        }
-
-                        // 第三行：田地操作
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 10.dp),
-                        ) {
-                            // 一键照料：有作物→浇水/收获，空地→播种（点按困难时的无障碍替代）
-                            Button(
-                                onClick = {
-                                    val plots = sceneHolder.village?.plots ?: return@Button
-                                    val target =
-                                        plots.firstOrNull { it.cropState() in 1..5 }
-                                            ?: plots.firstOrNull()
-                                    target?.onTap()
-                                }
-                            ) {
-                                Text(text = "🌱 一键照料", fontSize = 26.sp)
-                            }
-                            // 扩田（价格阶梯，买下后荒地变良田）
-                            GameState.nextPlotPrice()?.let { price ->
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = {
-                                        GameState.buyNextPlot()?.let { idx ->
-                                            sceneHolder.village?.plots?.getOrNull(idx)?.unlock()
-                                        }
-                                    }
-                                ) {
-                                    Text(text = "🪴 扩田 ¥$price", fontSize = 26.sp)
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Button(
-                                onClick = { sceneHolder.village?.toggleDiorama() }
-                            ) {
-                                Text(text = "🔭 沙盘", fontSize = 26.sp)
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            var childIdx by remember { mutableIntStateOf(0) }
-                            Button(
-                                onClick = {
-                                    val kids = sceneHolder.village?.children ?: return@Button
-                                    if (kids.isNotEmpty()) {
-                                        kids[childIdx % kids.size].onTap()
-                                        childIdx++
-                                    }
-                                }
-                            ) {
-                                Text(text = "🧒 孩子", fontSize = 26.sp)
-                            }
-                        }
-
-                        // 田垄状态栏（一眼看清田里有什么）
-                        run {
-                            GameState.plotRevision // 订阅刷新
-                            val v = sceneHolder.village
-                            if (v != null) {
-                                val line = v.plots.take(GameState.plotsOwned).mapIndexed { i, plot ->
-                                    when (val st = plot.cropState()) {
-                                        0 -> "田${i + 1}·空地"
-                                        5 -> "田${i + 1}·✅成熟"
-                                        else -> "田${i + 1}·🌱${st}/4"
-                                    }
-                                }.joinToString("  ")
-                                Text(
-                                    text = "🌾 $line",
-                                    color = PicoTheme.colorScheme.labelPrimary,
-                                    style = PicoTheme.typography.bodyMedium.copy(fontSize = 24.sp),
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                )
-                            }
-                        }
-
-                        // 新手引导线（按存档状态自动推进，田地状态优先）
-                        run {
-                            GameState.plotRevision // 订阅田垄状态刷新
-                        }
-                        val guide = when {
-                            sceneHolder.village?.plots?.any { it.cropState() == 5 } == true ->
-                                "👉 菜熟了！点田垄打开菜单收获 🧺"
-                            sceneHolder.village?.plots?.any { it.cropState() in 1..4 } == true ->
-                                "👉 点田垄打开菜单浇水 💧，长得更快、品质更好"
-                            GameState.seeds.isNotEmpty() &&
-                                sceneHolder.village?.plots?.any { it.cropState() == 0 } == true ->
-                                "👉 点田垄打开菜单播种，或直接按「🌱 一键照料」"
-                            GameState.produceTotal() > 0 ->
-                                "👉 收成在手！去「🧺 卖菜」换钱，或接「📋 委托」赚更多"
-                            GameState.seeds.isEmpty() ->
-                                "👉 第一步：点「🏪 种子」，买一包生菜种子（¥50）"
-                            else ->
-                                null
-                        }
-                        if (guide != null) {
-                            Text(
-                                text = guide,
-                                color = PicoTheme.colorScheme.labelPrimary,
-                                style = PicoTheme.typography.bodyMedium.copy(fontSize = 26.sp),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                            )
-                        }
-
-                        // 种子快捷栏：点选种子 → 点田垄播种
-                        if (GameState.seeds.isNotEmpty()) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(top = 14.dp),
-                            ) {
-                                Text(
-                                    text = "选种：",
-                                    color = PicoTheme.colorScheme.labelSecondary,
-                                    style = PicoTheme.typography.bodyMedium.copy(fontSize = 26.sp),
-                                )
-                                for ((seedId, count) in GameState.seeds) {
-                                    val def = plantById(seedId) ?: continue
-                                    val selected = GameState.selectedSeedId == seedId
-                                    Button(
-                                        onClick = { GameState.selectSeed(seedId) },
-                                        modifier = Modifier.padding(horizontal = 4.dp),
-                                    ) {
-                                        Text(
-                                            text = (if (selected) "✓" else "") +
-                                                "${def.emoji}×$count",
-                                            fontSize = 28.sp,
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            Text(
-                                text = "还没有种子，先去商店买吧 →",
-                                color = PicoTheme.colorScheme.labelSecondary,
-                                style = PicoTheme.typography.bodyMedium.copy(fontSize = 26.sp),
-                                modifier = Modifier.padding(top = 12.dp),
-                            )
-                        }
-
-                        // 操作提示
-                        Text(
-                            text = GameState.hint,
-                            color = PicoTheme.colorScheme.labelSecondary,
-                            style = PicoTheme.typography.bodySmall.copy(fontSize = 24.sp),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                        )
-                        Spacer(modifier = Modifier.size(2.dp))
-                    }
-                }
-            }
         },
     )
+}
+
+@Composable
+private fun ShopSign(label: String, onClick: () -> Unit) {
+    Button(onClick = onClick) {
+        Box(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
+            Text(text = label, fontSize = 24.sp)
+        }
+    }
 }
