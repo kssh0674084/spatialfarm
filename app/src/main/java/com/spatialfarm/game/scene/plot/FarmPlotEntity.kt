@@ -165,6 +165,42 @@ class FarmPlotEntity(
         return p
     }
 
+    /** 当前作物名（菜单显示用，空田为 null） */
+    fun cropName(): String? = plant?.name
+
+    /** 指定种子播种（菜单选择用）；成功返回 true */
+    fun plantSeedById(plantId: String): Boolean {
+        if (plant != null || locked) return false
+        val def = com.spatialfarm.game.data.plantById(plantId) ?: return false
+        if (!GameState.consumeSeed(def.id)) {
+            GameState.postHint("没有${def.name}种子了，去商店补货 🏪")
+            return false
+        }
+        plant = def
+        stage = 0
+        stageProgress = 0f
+        quality = 0
+        generation++
+        refreshPlantModel()
+        snapshot()
+        GameState.postHint("种下了 ${def.emoji}${def.name}")
+        return true
+    }
+
+    /** 浇水（菜单选择用） */
+    fun tapWater() {
+        val p = plant ?: return
+        if (stage >= STAGES) return
+        water(p)
+    }
+
+    /** 收获（菜单选择用） */
+    fun tapHarvest() {
+        val p = plant ?: return
+        if (stage < STAGES) return
+        harvest(p)
+    }
+
     /** 0=空田，1..4=生长中，5=成熟（HUD 快捷操作判断用） */
     fun cropState(): Int =
         when {
@@ -192,7 +228,7 @@ class FarmPlotEntity(
         generation++
         refreshPlantModel()
         snapshot()
-        GameState.postHint("种下了 ${def.emoji}${def.name}，点它浇水 💧")
+        GameState.postHint("种下了 ${def.emoji}${def.name}，点田垄打开菜单浇水 💧")
     }
 
     private fun water(p: PlantDef) {
@@ -266,7 +302,7 @@ class FarmPlotEntity(
             addChild(model)
             Burst.popScale(model, s)
             if (mature) {
-                GameState.postHint("${p.emoji}${p.name}成熟了！点它收获 🧺")
+                GameState.postHint("${p.emoji}${p.name}成熟了！点田垄打开菜单收获 🧺")
             }
         }
     }

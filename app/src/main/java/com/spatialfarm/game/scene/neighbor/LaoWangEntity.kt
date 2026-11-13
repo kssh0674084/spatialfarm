@@ -156,6 +156,11 @@ class LaoWangEntity(
     private var z = homePoint.z
 
     private fun trySteal() {
+        // 新手保护：玩家累计收获不足 3 次前，老王不会下手（避免首次种菜就被偷光的挫败感）
+        if (GameState.harvestLog.values.sum() < 3) {
+            GameState.postHint("老王来田边转了一圈，看你刚学种菜，没好意思下手 😏")
+            return
+        }
         val mature = plots.filter { it.cropState() == 5 }
         if (mature.isEmpty()) return
         val target = mature.random()

@@ -215,6 +215,15 @@ class VillageEntity : Entity() {
         }
     }
 
+    /** 田垄世界坐标锚点（动作菜单浮窗定位用） */
+    fun plotAnchor(index: Int): Vector3 {
+        val col = index % 4
+        val row = index / 4
+        val x = if (col in COL_XS.indices) COL_XS[col] else 0f
+        val z = PLOT_ROW_Z0 - row * ROW_GAP
+        return Vector3(x, 1.1f, z)
+    }
+
     /** 立稻草人（购买后调用）：在田边放一个草垛作为视觉标志 */
     fun placeScarecrow() {
         ioScope.launch {
