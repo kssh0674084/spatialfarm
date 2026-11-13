@@ -144,9 +144,9 @@ fun HomeStage() {
             place("panel", Vector3(0f, 1.5f, -1.4f))
             place("plot_menu", Vector3(0f, -10f, 0f))
             // 店铺招牌（房子上方的功能提示）
-            place("sign_seed", Vector3(-2.6f, 2.28f, -6.2f))
-            place("sign_buy", Vector3(0f, 2.7f, -6.5f))
-            place("sign_tool", Vector3(2.8f, 2.28f, -6.2f))
+            place("sign_seed", Vector3(-2.6f, 2.75f, -6.2f))
+            place("sign_buy", Vector3(0f, 3.45f, -6.5f))
+            place("sign_tool", Vector3(2.8f, 3.0f, -6.2f))
 
             sceneHolder.menuEntity = attachments.entity(id = "plot_menu")
         },
@@ -447,8 +447,8 @@ fun HomeStage() {
 @Composable
 private fun ShopSign(label: String, onClick: () -> Unit) {
     Button(onClick = onClick) {
-        Box(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
-            Text(text = label, fontSize = 24.sp)
+        Box(modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp)) {
+            Text(text = label, fontSize = 104.sp)
         }
     }
 }
