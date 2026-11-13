@@ -17,6 +17,7 @@ import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.scene.audio.Sfx
+import com.spatialfarm.game.scene.fx.AmbientLife
 import com.spatialfarm.game.scene.family.ChildEntity
 import com.spatialfarm.game.scene.family.ChildKind
 import com.spatialfarm.game.scene.neighbor.LaoWangEntity
@@ -77,10 +78,14 @@ class VillageEntity : Entity() {
         buildChildren()
         buildQuestBoard()
         buildAmbience()
+        spawnWildlife()
+        startBgm()
         // 3D 模型异步加载（不阻塞首帧）
         ioScope.launch { loadModels() }
         // 昼夜循环
         ioScope.launch { clockLoop() }
+        // 开场揭示动画（缩小 → 生长到真实尺度）
+        if (!GameState.demoMode) playIntroReveal()
     }
 
     // ---------------------------------------------------------------- 孩子（小勇/小花）
@@ -95,6 +100,60 @@ class VillageEntity : Entity() {
         son.components[TransformComponent::class.java]!!.setPosition(Vector3(-4.1f, 0f, 0.75f))
         addChild(son)
         children.add(son)
+    }
+
+    // ---------------------------------------------------------------- 世界生命（飞鸟/蝴蝶/炊烟）
+
+    private fun spawnWildlife() {
+        // 两只小鸟绕岛飞
+        AmbientLife.spawnBird(
+            this, Vector3(0f, 0f, -2.5f), radius = 6.5f, height = 5.2f,
+            speed = 0.35f, phase = 0f, wingColor = Color4(0.45f, 0.40f, 0.35f, 1f),
+        )
+        AmbientLife.spawnBird(
+            this, Vector3(0f, 0f, -2.5f), radius = 5.2f, height = 6.0f,
+            speed = 0.28f, phase = 2.4f, wingColor = Color4(0.55f, 0.50f, 0.45f, 1f),
+        )
+        // 田边两只蝴蝶
+        AmbientLife.spawnButterfly(this, Vector3(0.2f, 0.35f, -1.8f), Color4(0.98f, 0.85f, 0.45f, 1f))
+        AmbientLife.spawnButterfly(this, Vector3(-1.2f, 0.35f, -3.2f), Color4(0.95f, 0.65f, 0.75f, 1f))
+        // 炊烟：玩家小屋 + 客栈
+        AmbientLife.chimneySmoke(this, Vector3(-3.9f, 1.85f, -1.4f))
+        AmbientLife.chimneySmoke(this, Vector3(0.35f, 2.15f, -6.5f))
+    }
+
+    private fun startBgm() {
+        val bgm = Entity()
+        bgm.setName("bgm_player")
+        bgm.components[TransformComponent::class.java]?.setPosition(Vector3(0f, 1.2f, -2f))
+        Sfx.attachPointSource(bgm, volume = 0.30f)
+        addChild(bgm)
+        ioScope.launch {
+            delay(2600) // 等开场动画
+            while (valid) {
+                Sfx.playBgm(bgm)
+                delay(16_000) // bgm.wav 16 秒循环
+            }
+        }
+    }
+
+    /** 开场揭示：小岛先以小尺度悬浮在前方，随后生长到真实大小把你"包"进村庄。 */
+    fun playIntroReveal() {
+        ioScope.launch {
+            applyDioramaScale(0.16f)
+            kotlinx.coroutines.delay(500)
+            val steps = 40
+            val from = 0.16f
+            for (i in 1..steps) {
+                if (!valid) return@launch
+                val t = i / steps.toFloat()
+                val eased = t * t * (3 - 2 * t)
+                applyDioramaScale(from + (1f - from) * eased)
+                kotlinx.coroutines.delay(55)
+            }
+            applyDioramaScale(1f)
+            GameState.postHint("🏝️ 欢迎来到清风岛！从一块田开始你的田园生活 🌱")
+        }
     }
 
     // ---------------------------------------------------------------- 广场委托板
@@ -437,20 +496,23 @@ class VillageEntity : Entity() {
         buildPlotFence()
 
         // ---- 边缘树林与灌木（环绕氛围） ----
-        loadModel("models/nature/CommonTree_1.glb", Vector3(-6.4f, 0f, -5.4f), scale = 1.15f)
-        loadModel("models/nature/CommonTree_3.glb", Vector3(-6.9f, 0f, -2.6f), scale = 1.0f)
-        loadModel("models/nature/CommonTree_2.glb", Vector3(-6.2f, 0f, 0.8f), scale = 1.25f)
-        loadModel("models/nature/CommonTree_4.glb", Vector3(5.9f, 0f, -0.6f), scale = 1.1f)
-        loadModel("models/nature/CommonTree_5.glb", Vector3(6.6f, 0f, -4.8f), scale = 1.0f)
-        loadModel("models/nature/PineTree_1.glb", Vector3(-3.4f, 0f, -8.2f), scale = 1.1f)
-        loadModel("models/nature/PineTree_2.glb", Vector3(3.9f, 0f, -8.4f), scale = 1.2f)
-        loadModel("models/nature/PineTree_3.glb", Vector3(-0.8f, 0f, -8.8f), scale = 1.0f)
+        loadSway("models/nature/CommonTree_1.glb", Vector3(-6.4f, 0f, -5.4f), scale = 1.15f)
+        loadSway("models/nature/CommonTree_3.glb", Vector3(-6.9f, 0f, -2.6f), scale = 1.0f)
+        loadSway("models/nature/CommonTree_2.glb", Vector3(-6.2f, 0f, 0.8f), scale = 1.25f)
+        loadSway("models/nature/CommonTree_4.glb", Vector3(5.9f, 0f, -0.6f), scale = 1.1f)
+        loadSway("models/nature/CommonTree_5.glb", Vector3(6.6f, 0f, -4.8f), scale = 1.0f)
+        loadSway("models/nature/PineTree_1.glb", Vector3(-3.4f, 0f, -8.2f), scale = 1.1f)
+        loadSway("models/nature/PineTree_2.glb", Vector3(3.9f, 0f, -8.4f), scale = 1.2f)
+        loadSway("models/nature/PineTree_3.glb", Vector3(-0.8f, 0f, -8.8f), scale = 1.0f)
         loadModel("models/nature/Bush_1.glb", Vector3(-2.6f, 0f, 1.0f))
         loadModel("models/nature/Bush_2.glb", Vector3(2.8f, 0f, 0.6f))
         loadModel("models/nature/Rock_1.glb", Vector3(4.6f, 0f, -5.8f))
         loadModel("models/nature/Rock_2.glb", Vector3(-5.4f, 0f, -4.0f))
         loadModel("models/nature/Rock_3.glb", Vector3(1.6f, 0f, 0.9f))
     }
+
+    /** 摇曳注册表：树 (entity, 基准朝向, 相位) */
+    private val swayables = mutableListOf<Triple<Entity, Float, Float>>()
 
     /**
      * 加载一个 GLB 模型并放置到村中。
@@ -461,11 +523,11 @@ class VillageEntity : Entity() {
         position: Vector3,
         yaw: Float = 0f,
         scale: Float = 1f,
-    ) {
+    ): Entity? {
         val entity = Entity.loadSuspend("asset://$uri")
         if (!valid) {
             entity.destroy(true)
-            return
+            return null
         }
         entity.components[TransformComponent::class.java]?.apply {
             setPosition(position)
@@ -473,6 +535,35 @@ class VillageEntity : Entity() {
             setScaleVector(Vector3(scale, scale, scale))
         }
         addChild(entity)
+        return entity
+    }
+
+    /** 加载一棵会随风轻摆的树 */
+    private suspend fun loadSway(uri: String, position: Vector3, scale: Float = 1f) {
+        val e = loadModel(uri, position, scale = scale) ?: return
+        swayables.add(Triple(e, 0f, (0..62).random() / 10f))
+        startSwayTickerIfNeeded()
+    }
+
+    private var swayTickerStarted = false
+
+    private fun startSwayTickerIfNeeded() {
+        if (swayTickerStarted) return
+        swayTickerStarted = true
+        ioScope.launch {
+            var t = 0f
+            while (valid) {
+                t += 0.08f
+                swayables.forEach { (e, baseYaw, phase) ->
+                    if (!e.valid) return@forEach
+                    val sway = kotlin.math.sin(t * 0.9f + phase) * 2.2f
+                    val rock = kotlin.math.sin(t * 0.6f + phase * 1.7f) * 1.2f
+                    e.components[TransformComponent::class.java]
+                        ?.setEulerAngles(EulerAngles(rock, baseYaw + sway, 0f))
+                }
+                kotlinx.coroutines.delay(130)
+            }
+        }
     }
 
     private companion object {

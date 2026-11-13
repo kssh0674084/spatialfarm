@@ -16,6 +16,7 @@ object Sfx {
     private var birdsRes: AudioResource? = null
     private var harvestRes: AudioResource? = null
     private var waterRes: AudioResource? = null
+    private var bgmRes: AudioResource? = null
 
     private fun ensureLoaded() {
         if (birdsRes != null) return
@@ -24,6 +25,8 @@ object Sfx {
         harvestRes = AudioResource.load("sfx_harvest", "asset://audio/harvest.wav", LoadType.FROM_ASSETS)
             .also { it.toGlobal() }
         waterRes = AudioResource.load("sfx_water", "asset://audio/water.wav", LoadType.FROM_ASSETS)
+            .also { it.toGlobal() }
+        bgmRes = AudioResource.load("sfx_bgm", "asset://audio/bgm.wav", LoadType.FROM_ASSETS)
             .also { it.toGlobal() }
     }
 
@@ -53,6 +56,15 @@ object Sfx {
         runCatching {
             ensureLoaded()
             val res = harvestRes ?: return
+            entity.playAudio(res).play()
+        }
+    }
+
+    /** 播放田园 BGM（32 秒循环，由调度器重复调用） */
+    fun playBgm(entity: Entity) {
+        runCatching {
+            ensureLoaded()
+            val res = bgmRes ?: return
             entity.playAudio(res).play()
         }
     }
