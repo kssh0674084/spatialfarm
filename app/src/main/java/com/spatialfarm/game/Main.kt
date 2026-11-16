@@ -78,7 +78,7 @@ fun mainApp(scope: SpatialAppScope) =
         WindowContainer(
             id = WINDOW_ID_MAP,
             form = Form.Planar,
-            defaultSize = WindowContainerSize(width = 920.dp, height = 640.dp),
+            defaultSize = WindowContainerSize(width = 940.dp, height = 700.dp),
         ) {
             IslandMapWindow()
         }

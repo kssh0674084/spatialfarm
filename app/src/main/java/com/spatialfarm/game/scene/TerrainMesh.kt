@@ -17,58 +17,98 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
-import kotlin.math.sqrt
 
 /**
- * 旷野之息风格的程序化草原地形（RawMesh）。
+ * 开放世界岛屿地形 v2（100×100 米，吉卜力暖阳风）。
  *
- * - 多层正弦叠加生成柔和起伏的丘陵（非噪声，平滑吉卜力感）
- * - 岛屿边缘自然下沉，形成草丘小岛的轮廓
- * - 村庄功能区（田垄/主街/小屋/码头/用户站立区）自动压平，物体稳定落地
- * - 每顶点颜色：三种粉彩绿按斑块混合，丘顶泛奶油黄、边缘转深绿
- *
- * 坐标约定：地形覆盖 X ∈ [-8, 8]，Z ∈ [-9.5, 4.5]，中心 (0, -2.5)。
+ * 结构：
+ * - 中央：村庄高原（压平）
+ * - 风车丘陵（东侧隆起）
+ * - 湖泊盆地（西北）+ 小溪（湖向东南入海）
+ * - 边缘沙滩 → 环海
  */
 object TerrainMesh {
 
-    /** 压平区（世界坐标圆盘）：中心 + 半径。区内高度平滑过渡到 0。 */
-    private val FLAT_ZONES = listOf(
-        FlatZone(0.0f, 0.6f, 2.2f),      // 用户站立区
-        FlatZone(0.0f, -2.7f, 5.0f),     // 田垄区（8 块田 2×4）
-        FlatZone(0.0f, -6.2f, 4.4f),     // 小镇主街
-        FlatZone(-4.2f, -1.2f, 2.6f),    // 玩家小屋
-        FlatZone(5.6f, -2.2f, 2.4f),     // 码头
+    const val HALF = 50f                 // 岛屿半宽（X/Z 各 -50..50）
+    const val SEA_LEVEL = -0.8f          // 海面高度
+    const val LAKE_LEVEL = -0.30f        // 湖面高度
+    private const val GRID = 240
+    private const val POS_STRIDE = 12
+    private const val COLOR_STRIDE = 16
+
+    // 溪流路径（湖 → 海）
+    private val STREAM_PATH = listOf(
+        floatArrayOf(-20f, 16f),
+        floatArrayOf(-14f, 20f),
+        floatArrayOf(-8f, 25f),
+        floatArrayOf(-2f, 30f),
+        floatArrayOf(3f, 35f),
+        floatArrayOf(7f, 40f),
+        floatArrayOf(9f, 45f),
     )
 
-    private data class FlatZone(val cx: Float, val cz: Float, val radius: Float)
+    // 颜色
+    private val GRASS = Color4(0.55f, 0.80f, 0.38f, 1f)
+    private val GRASS_LIGHT = Color4(0.80f, 0.93f, 0.46f, 1f)
+    private val GRASS_DARK = Color4(0.32f, 0.58f, 0.33f, 1f)
+    private val MOUND_TOP = Color4(0.94f, 0.92f, 0.52f, 1f)
+    private val SAND = Color4(0.93f, 0.87f, 0.66f, 1f)
+    private val SEABED = Color4(0.42f, 0.62f, 0.62f, 1f)
 
-    // 网格参数
-    private const val GRID = 72                 // 72×72 顶点，间距约 0.2m
-    private const val HALF_W = 8f               // X 半宽
-    private const val CENTER_Z = -2.5f
-    private const val HALF_D = 7f               // Z 半深
+    /** 主高度场 */
+    fun height(x: Float, z: Float): Float {
+        var h = 1.6f * sin(x * 0.075f + 1.3f) * cos(z * 0.06f + 0.4f) +
+            0.9f * sin(x * 0.16f + 4.1f) * sin(z * 0.14f + 2.2f) +
+            0.35f * cos(x * 0.42f + 0.9f) * cos(z * 0.38f + 3.1f) +
+            0.15f * sin(x * 1.1f + 2.0f) * sin(z * 1.0f + 0.7f) +
+            0.8f
 
-    // 双流布局：槽 0 = POSITION(FLOAT3, 12B)，槽 1 = COLOR(FLOAT4, 16B)
-    private const val POS_STRIDE = 3 * 4
-    private const val COLOR_STRIDE = 4 * 4
+        // 风车丘陵（东侧隆起）
+        h += gaussian(x, z, 24f, -16f, 14f) * 4.2f
 
-    // 粉彩草色（加大对比，旷野之息式斑块）
-    private val GRASS = Color4(0.60f, 0.81f, 0.44f, 1f)
-    private val GRASS_LIGHT = Color4(0.83f, 0.94f, 0.50f, 1f)
-    private val GRASS_DARK = Color4(0.34f, 0.59f, 0.36f, 1f)
-    private val MOUND_TOP = Color4(0.95f, 0.93f, 0.55f, 1f)   // 丘顶阳光金
+        // 湖泊盆地
+        h -= gaussian(x, z, -20f, 16f, 11f) * 2.4f
 
-    /** 生成并返回草原地形网格。 */
+        // 溪流河道下切
+        var streamInfluence = 0f
+        for (i in 0 until STREAM_PATH.size - 1) {
+            val d = distToSegment(
+                x, z,
+                STREAM_PATH[i][0], STREAM_PATH[i][1],
+                STREAM_PATH[i + 1][0], STREAM_PATH[i + 1][1],
+            )
+            streamInfluence = max(streamInfluence, 1f - min(1f, d / 2.2f))
+        }
+        h -= streamInfluence * 2.0f
+
+        // 岛屿边缘下沉到海底
+        val r = hypot(x, z)
+        val edge = smoothStep(44f, 50f, r)
+        h = h * (1f - edge) + (-2.6f) * edge
+
+        // 村庄高原压平
+        val plateau = 1f - smoothStep(12f, 17f, hypot(x, z - (-2.5f)))
+        h *= (1f - plateau)
+
+        return h
+    }
+
+    /** 溪流路径（水面条带用） */
+    fun streamSegments(): List<FloatArray> = STREAM_PATH
+
+    /** 是否可行走（海滩以内） */
+    fun walkable(x: Float, z: Float): Boolean = hypot(x, z) < 46f
+
+    /** 生成地形网格 */
     fun create(): MeshResource {
         val vertexCount = GRID * GRID
         val indexCount = (GRID - 1) * (GRID - 1) * 6
 
         val descriptor = RawMeshDescriptorBuilder().use { builder ->
             builder
-                // 流布局 0：位置流（bufferSlot 0）
                 .streamLayout(RawMeshStreamLayout(bufferSlot = 0, stride = POS_STRIDE))
-                // 流布局 1：颜色流（bufferSlot 1）
                 .streamLayout(RawMeshStreamLayout(bufferSlot = 1, stride = COLOR_STRIDE))
                 .streamAttribute(
                     RawMeshStreamAttribute(
@@ -92,11 +132,11 @@ object TerrainMesh {
                 .isDynamic(false)
                 .boundingBox(
                     BoundingBox(
-                        center = Vector3(0f, 0f, CENTER_Z),
-                        halfExtent = Vector3(HALF_W, 1.2f, HALF_D),
+                        center = Vector3(0f, 0f, 0f),
+                        halfExtent = Vector3(HALF, 6f, HALF),
                     )
                 )
-                .addSubMesh(0, indexCount, 0, "meadow", PrimitiveType.TRIANGLES)
+                .addSubMesh(0, indexCount, 0, "island", PrimitiveType.TRIANGLES)
                 .build()
         }
 
@@ -105,70 +145,51 @@ object TerrainMesh {
                 check(rawMesh.populateVertexBuffer(0) { buffer -> writePositions(buffer) })
                 check(rawMesh.populateVertexBuffer(1) { buffer -> writeColors(buffer) })
                 check(rawMesh.populateIndicesBuffer(::writeIndices))
-                MeshResource.createWithRawMesh(rawMesh, "village_meadow")
+                MeshResource.createWithRawMesh(rawMesh, "island_terrain")
             }
         }
     }
 
-    // ---------------------------------------------------------------- 高度与颜色
+    // ---------------------------------------------------------------- 颜色
 
-    /** 起伏高度场：多层柔和正弦 + 边缘下沉 + 功能区压平。 */
-    fun height(x: Float, z: Float): Float {
-        var h = 0.32f * sin(x * 0.32f + 1.7f) * cos(z * 0.27f + 0.6f) +
-            0.15f * sin(x * 0.85f + 4.2f) * sin(z * 0.78f + 2.1f) +
-            0.07f * cos(x * 1.7f + 0.8f) * cos(z * 1.6f + 3.3f) +
-            0.28f
-
-        // 岛屿边缘：径向 falloff，外围下沉
-        val nx = x / HALF_W
-        val nz = (z - CENTER_Z) / HALF_D
-        val r = sqrt(nx * nx + nz * nz)
-        h -= smoothStep(0.70f, 1.05f, r) * 0.85f
-
-        // 功能区压平到 0
-        for (zone in FLAT_ZONES) {
-            val d = hypot(x - zone.cx, z - zone.cz)
-            val inner = zone.radius * 0.55f
-            if (d < inner) {
-                h = 0f
-            } else if (d < zone.radius) {
-                val k = smoothStep(inner, zone.radius, d)
-                h *= k
-            }
-        }
-        return h
-    }
-
-    /** 顶点草色：双频斑块混合 + 丘顶阳光 + 低洼深绿。 */
     private fun colorAt(x: Float, z: Float, h: Float): Color4 {
-        val big = 0.5f + 0.5f * sin(x * 0.45f + 2.0f) * sin(z * 0.40f + 1.2f)
-        val small = 0.5f + 0.5f * sin(x * 1.3f + 0.7f) * sin(z * 1.1f + 2.9f)
+        if (h < SEA_LEVEL + 0.25f) return SEABED
+        // 沙滩只出现在岛边缘环带（内陆低地仍是草地）
+        if (h < SEA_LEVEL + 0.9f && kotlin.math.hypot(x, z) > 34f) return SAND
+
+        val big = 0.5f + 0.5f * sin(x * 0.11f + 2.0f) * sin(z * 0.10f + 1.2f)
+        val small = 0.5f + 0.5f * sin(x * 0.35f + 0.7f) * sin(z * 0.30f + 2.9f)
         val t = 0.65f * big + 0.35f * small
         var c = lerpColor(GRASS, GRASS_LIGHT, t)
 
-        val top = if (h > 0.30f) (h - 0.30f) / 0.35f else 0f
-        if (top > 0f) c = lerpColor(c, MOUND_TOP, top.coerceAtMost(0.8f))
-
-        val low = if (h < -0.10f) (-0.10f - h) / 0.6f else 0f
-        if (low > 0f) c = lerpColor(c, GRASS_DARK, low.coerceAtMost(0.9f))
-
+        if (h > 2.6f) {
+            val top = ((h - 2.6f) / 1.6f).coerceAtMost(0.8f)
+            c = lerpColor(c, MOUND_TOP, top)
+        }
+        if (h < 0.4f) {
+            val low = ((0.4f - h) / 1.1f).coerceAtMost(0.85f)
+            c = lerpColor(c, GRASS_DARK, low)
+        }
         return c
     }
 
-    // ---------------------------------------------------------------- 缓冲写入
+    // ---------------------------------------------------------------- 缓冲
+
+    private fun gridPos(ix: Int, iz: Int): FloatArray {
+        val px = (ix.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
+        val pz = (iz.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
+        return floatArrayOf(px, height(px, pz), pz)
+    }
 
     private fun writePositions(buffer: ByteBuffer): Boolean {
         for (iz in 0 until GRID) {
             for (ix in 0 until GRID) {
                 val index = iz * GRID + ix
-                val px = (ix.toFloat() / (GRID - 1) - 0.5f) * HALF_W * 2f
-                val pz = CENTER_Z + (iz.toFloat() / (GRID - 1) - 0.5f) * HALF_D * 2f
-                val py = height(px, pz)
-
+                val p = gridPos(ix, iz)
                 val offset = index * POS_STRIDE
-                buffer.putFloat(offset, px)
-                buffer.putFloat(offset + 4, py)
-                buffer.putFloat(offset + 8, pz)
+                buffer.putFloat(offset, p[0])
+                buffer.putFloat(offset + 4, p[1])
+                buffer.putFloat(offset + 8, p[2])
             }
         }
         return true
@@ -178,11 +199,8 @@ object TerrainMesh {
         for (iz in 0 until GRID) {
             for (ix in 0 until GRID) {
                 val index = iz * GRID + ix
-                val px = (ix.toFloat() / (GRID - 1) - 0.5f) * HALF_W * 2f
-                val pz = CENTER_Z + (iz.toFloat() / (GRID - 1) - 0.5f) * HALF_D * 2f
-                val py = height(px, pz)
-                val c = colorAt(px, pz, py)
-
+                val p = gridPos(ix, iz)
+                val c = colorAt(p[0], p[2], p[1])
                 val offset = index * COLOR_STRIDE
                 buffer.putFloat(offset, c.red)
                 buffer.putFloat(offset + 4, c.green)
@@ -217,6 +235,27 @@ object TerrainMesh {
 
     // ---------------------------------------------------------------- 工具
 
+    private fun gaussian(x: Float, z: Float, cx: Float, cz: Float, radius: Float): Float {
+        val d2 = (x - cx) * (x - cx) + (z - cz) * (z - cz)
+        return kotlin.math.exp((-d2 / (radius * radius)).toDouble()).toFloat()
+    }
+
+    private fun distToSegment(
+        px: Float, pz: Float,
+        x1: Float, z1: Float,
+        x2: Float, z2: Float,
+    ): Float {
+        val dx = x2 - x1
+        val dz = z2 - z1
+        val len2 = dx * dx + dz * dz
+        if (len2 <= 0.0001f) return hypot(px - x1, pz - z1)
+        var t = ((px - x1) * dx + (pz - z1) * dz) / len2
+        t = t.coerceIn(0f, 1f)
+        val cx = x1 + t * dx
+        val cz = z1 + t * dz
+        return hypot(px - cx, pz - cz)
+    }
+
     private fun smoothStep(edge0: Float, edge1: Float, x: Float): Float {
         val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
         return t * t * (3f - 2f * t)
@@ -231,8 +270,4 @@ object TerrainMesh {
             1f,
         )
     }
-
-    /** 地形是否在某压平区内（供放置物体时参考）。 */
-    fun isFlatZone(x: Float, z: Float): Boolean =
-        FLAT_ZONES.any { hypot(x - it.cx, z - it.cz) < it.radius * 0.55f && abs(it.cx) >= 0f }
 }
