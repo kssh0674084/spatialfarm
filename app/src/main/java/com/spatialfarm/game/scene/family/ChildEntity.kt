@@ -67,7 +67,7 @@ class ChildEntity(
                 setScaleVector(Vector3(scale, scale, scale))
                 setEulerAngles(
                     com.pico.spatial.core.math.EulerAngles(
-                        0f, 180f + TripoOverrides.yawFor(itemId), 0f
+                        0f, -90f + TripoOverrides.yawFor(itemId), 0f
                     )
                 )
             }

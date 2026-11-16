@@ -29,6 +29,7 @@ import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import com.spatialfarm.game.scene.props.QuestBoardEntity
 import com.spatialfarm.game.scene.props.ShopKind
 import com.spatialfarm.game.scene.props.ShopPointEntity
+import com.spatialfarm.game.scene.props.ShopkeeperEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -60,6 +61,13 @@ class VillageEntity : Entity() {
 
     private val ioScope = CoroutineScope(Dispatchers.Main)
 
+    // 天气字段（必须声明在 init 之前：setUp 里会用到）
+    private var rainRoot: Entity? = null
+    private val rainLayers = mutableListOf<Entity>()
+    private var rainOn = false
+    private var skyRain: Entity? = null
+    private var weatherLoopStarted = false
+
     init {
         setUp()
     }
@@ -77,6 +85,7 @@ class VillageEntity : Entity() {
         buildSky()
         buildTerrain()
         buildGrass()
+        buildWeather()
         buildSun()
         buildFarmPlots()
         buildSign()
@@ -634,6 +643,7 @@ class VillageEntity : Entity() {
         skyDay = makeSkySphere("sky_day", Color4(1f, 1f, 1f, 1f))
         skyDusk = makeSkySphere("sky_dusk", Color4(1.0f, 0.78f, 0.66f, 1f)).also { it.enabled = false }
         skyNight = makeSkySphere("sky_night", Color4(0.30f, 0.36f, 0.55f, 1f)).also { it.enabled = false }
+        skyRain = makeSkySphere("sky_rain", Color4(0.58f, 0.64f, 0.72f, 1f)).also { it.enabled = false }
         skyEntity = skyDay
     }
 
@@ -659,6 +669,57 @@ class VillageEntity : Entity() {
         val grass = ModelEntity(GrassMesh.create(), grassMat)
         grass.setName("meadow_grass")
         addChild(grass)
+    }
+
+    // ---------------------------------------------------------------- 天气（雨）
+
+    private fun buildWeather() {
+        val root = com.spatialfarm.game.scene.fx.RainMesh.createRain()
+        root.enabled = false
+        rainRoot = root
+        rainLayers.clear()
+        rainLayers.addAll(root.getChildren().filterNotNull())
+        addChild(root)
+        startWeatherLoop()
+    }
+
+    /** 切换下雨（供 HUD 按钮调用） */
+    fun toggleRain(): Boolean {
+        rainOn = !rainOn
+        rainRoot?.enabled = rainOn
+        skyRain?.enabled = rainOn
+        skyDay?.enabled = !rainOn
+        if (rainOn) {
+            GameState.postHint("🌧 下雨了：作物会自己喝水，长得更快")
+        } else {
+            GameState.postHint("☀️ 雨停了，适合去田里看看")
+        }
+        return rainOn
+    }
+
+    private fun startWeatherLoop() {
+        if (weatherLoopStarted) return
+        weatherLoopStarted = true
+        ioScope.launch {
+            var t = 0f
+            while (valid) {
+                delay(50)
+                t += 0.05f
+                // 雨幕下落 + 循环
+                rainLayers.forEach { layer ->
+                    if (!layer.valid) return@forEach
+                    val tr = layer.components[TransformComponent::class.java] ?: return@forEach
+                    val p = tr.position
+                    var y = p.y - 7f * 0.05f
+                    if (y < -2f) y += 10f
+                    tr.position = Vector3(p.x, y, p.z)
+                }
+                // 下雨时作物缓慢自动补水生长（每秒一次）
+                if (rainOn && (t * 20).toInt() % 20 == 0) {
+                    plots.forEach { it.rainBoost() }
+                }
+            }
+        }
     }
 
     private fun buildSun() {
@@ -809,10 +870,17 @@ class VillageEntity : Entity() {
     // ---------------------------------------------------------------- 3D 模型加载
 
     private suspend fun loadModels() {
-        // ---- 店主 NPC（待机动画）----
-        loadIdleCharacter("mei_yi", Vector3(-2.6f, 0f, -5.2f), yaw = 180f)
-        loadIdleCharacter("pang_shen", Vector3(0f, 0f, -5.4f), yaw = 180f)
-        loadIdleCharacter("chui_shu", Vector3(2.8f, 0f, -5.2f), yaw = 180f)
+        // ---- 店主 NPC（待机动画 + 可点击开店）----
+        run {
+            fun shopkeeper(itemId: String, kind: ShopKind, x: Float, z: Float) {
+                val npc = ShopkeeperEntity(itemId, kind, yaw = -90f, scale = 1f)
+                npc.components[TransformComponent::class.java]!!.setPosition(Vector3(x, 0f, z))
+                addChild(npc)
+            }
+            shopkeeper("mei_yi", ShopKind.SEED, -2.6f, -5.25f)
+            shopkeeper("pang_shen", ShopKind.BUYER, 0f, -5.45f)
+            shopkeeper("chui_shu", ShopKind.TOOL, 2.8f, -5.25f)
+        }
 
         // ---- Tripo 新地标：水车小屋（磨坊水塘在西北侧，水轮浸入塘中，朝向进村小路）----
         run {

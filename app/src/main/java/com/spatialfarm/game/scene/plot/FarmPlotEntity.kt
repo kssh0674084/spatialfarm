@@ -156,6 +156,12 @@ class FarmPlotEntity(
         addFurrows(soil)
     }
 
+    /** 雨天自动补水：缓慢推进生长（下雨时每分钟调用） */
+    fun rainBoost() {
+        if (plant == null || stage >= STAGES) return
+        stageProgress += 1.0f
+    }
+
     /** 用户点按田垄。 */
     fun onTap() {
         if (locked) {

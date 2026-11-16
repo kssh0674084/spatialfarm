@@ -114,6 +114,15 @@ fun HomeStage() {
                             handled = true
                             break
                         }
+                        if (e is com.spatialfarm.game.scene.props.ShopkeeperEntity) {
+                            when (e.shopKind()) {
+                                ShopKind.SEED -> navigator.openWindowContainer(WINDOW_ID_SEED_SHOP)
+                                ShopKind.BUYER -> navigator.openWindowContainer(WINDOW_ID_BUYER)
+                                ShopKind.TOOL -> navigator.openWindowContainer(WINDOW_ID_TOOLSHOP)
+                            }
+                            handled = true
+                            break
+                        }
                         if (e is ShopPointEntity) {
                             when (e.shopKind()) {
                                 ShopKind.SEED -> navigator.openWindowContainer(WINDOW_ID_SEED_SHOP)
@@ -384,6 +393,18 @@ fun HomeStage() {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Button(onClick = { sceneHolder.village?.toggleDiorama() }) {
                                     Text(text = "🔭 沙盘", fontSize = 24.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                var raining by remember { mutableStateOf(false) }
+                                Button(
+                                    onClick = {
+                                        raining = sceneHolder.village?.toggleRain() ?: false
+                                    }
+                                ) {
+                                    Text(
+                                        text = if (raining) "☀️ 停雨" else "🌧 下雨",
+                                        fontSize = 24.sp,
+                                    )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 var resetConfirm by remember { mutableStateOf(false) }
