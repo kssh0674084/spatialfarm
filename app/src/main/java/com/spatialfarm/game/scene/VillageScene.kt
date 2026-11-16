@@ -74,6 +74,7 @@ class VillageEntity : Entity() {
         setName("village_root")
         buildSky()
         buildTerrain()
+        buildGrass()
         buildSun()
         buildFarmPlots()
         buildSign()
@@ -307,7 +308,8 @@ class VillageEntity : Entity() {
             repeat(18) {
                 val pnt = randPoint()
                 val isPine = rnd.nextBoolean()
-                loadSway(
+                loadSwaySmart(
+                    if (isPine) "prop_tree_pine" else if (rnd.nextBoolean()) "prop_tree_a" else "prop_tree_b",
                     if (isPine) "models/nature/PineTree_${1 + rnd.nextInt(3)}.glb"
                     else "models/nature/CommonTree_${1 + rnd.nextInt(5)}.glb",
                     Vector3(pnt[0], TerrainMesh.height(pnt[0], pnt[1]), pnt[1]),
@@ -645,6 +647,18 @@ class VillageEntity : Entity() {
         addChild(terrain)
     }
 
+    /** 程序化草地（单网格，一次 draw call） */
+    private fun buildGrass() {
+        val grassMat = UnlitMaterial.create().apply {
+            setBaseColor(Color4(1f, 1f, 1f, 1f))
+            setCullingMode(MaterialCullingMode.NONE)
+            toGlobal()
+        }
+        val grass = ModelEntity(GrassMesh.create(), grassMat)
+        grass.setName("meadow_grass")
+        addChild(grass)
+    }
+
     private fun buildSun() {
         val sun = Entity()
         sun.setName("sun")
@@ -914,14 +928,14 @@ class VillageEntity : Entity() {
         loadModelSmart("prop_tree_pine", "models/nature/PineTree_3.glb", Vector3(5.1f, 0f, -9.0f), scale = 1.2f)
 
         // ---- 边缘树林与灌木（环绕氛围） ----
-        loadSway("models/nature/CommonTree_1.glb", Vector3(-6.4f, 0f, -5.4f), scale = 1.15f)
-        loadSway("models/nature/CommonTree_3.glb", Vector3(-6.9f, 0f, -2.6f), scale = 1.0f)
-        loadSway("models/nature/CommonTree_2.glb", Vector3(-6.2f, 0f, 0.8f), scale = 1.25f)
-        loadSway("models/nature/CommonTree_4.glb", Vector3(5.9f, 0f, -0.6f), scale = 1.1f)
-        loadSway("models/nature/CommonTree_5.glb", Vector3(6.6f, 0f, -4.8f), scale = 1.0f)
-        loadSway("models/nature/PineTree_1.glb", Vector3(-3.4f, 0f, -8.2f), scale = 1.1f)
-        loadSway("models/nature/PineTree_2.glb", Vector3(3.9f, 0f, -8.4f), scale = 1.2f)
-        loadSway("models/nature/PineTree_3.glb", Vector3(-0.8f, 0f, -8.8f), scale = 1.0f)
+        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_1.glb", Vector3(-6.4f, 0f, -5.4f), scale = 1.15f)
+        loadSwaySmart("prop_tree_a", "models/nature/CommonTree_3.glb", Vector3(-6.9f, 0f, -2.6f), scale = 1.0f)
+        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_2.glb", Vector3(-6.2f, 0f, 0.8f), scale = 1.25f)
+        loadSwaySmart("prop_tree_a", "models/nature/CommonTree_4.glb", Vector3(5.9f, 0f, -0.6f), scale = 1.1f)
+        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_5.glb", Vector3(6.6f, 0f, -4.8f), scale = 1.0f)
+        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_1.glb", Vector3(-3.4f, 0f, -8.2f), scale = 1.1f)
+        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_2.glb", Vector3(3.9f, 0f, -8.4f), scale = 1.2f)
+        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_3.glb", Vector3(-0.8f, 0f, -8.8f), scale = 1.0f)
         loadModelSmart("prop_bush", "models/nature/Bush_1.glb", Vector3(-2.6f, 0f, 1.0f))
         loadModelSmart("prop_bush", "models/nature/Bush_2.glb", Vector3(2.8f, 0f, 0.6f))
         loadModelSmart("prop_rock", "models/nature/Rock_1.glb", Vector3(4.6f, 0f, -5.8f))
@@ -1047,6 +1061,38 @@ class VillageEntity : Entity() {
         }
         addChild(entity)
         return entity
+    }
+
+    /** 会摇摆的树：优先 Tripo 覆盖（prop_tree_a/b/pine），否则回退默认美术 */
+    private suspend fun loadSwaySmart(
+        itemId: String,
+        defaultUri: String,
+        position: Vector3,
+        scale: Float = 1f,
+    ) {
+        val overrideUri = TripoOverrides.uriFor(itemId)
+        var e: Entity? = null
+        if (overrideUri != null) {
+            val ent = runCatching { Entity.loadSuspend(overrideUri) }.getOrNull()
+            if (ent != null && valid) {
+                val s = scale * TripoOverrides.scaleFor(itemId)
+                ent.components[TransformComponent::class.java]?.apply {
+                    setPosition(position)
+                    setEulerAngles(EulerAngles(0f, TripoOverrides.yawFor(itemId), 0f))
+                    setScaleVector(Vector3(s, s, s))
+                }
+                addChild(ent)
+                e = ent
+            } else {
+                ent?.destroy(true)
+            }
+        }
+        if (e == null) {
+            e = loadModel(defaultUri, position, scale = scale)
+        }
+        val tree = e ?: return
+        swayables.add(Triple(tree, TripoOverrides.yawFor(itemId), (0..62).random() / 10f))
+        startSwayTickerIfNeeded()
     }
 
     /** 加载一棵会随风轻摆的树 */
