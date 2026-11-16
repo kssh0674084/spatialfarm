@@ -1,1 +1,7 @@
-{"_comment": "Tripo 模型清单：把 <itemId>.glb 放到本目录即可覆盖对应物品；scale/yaw 可逐件修正"}
+{
+  "_comment": "Tripo 模型校准表：scale=整体缩放, yaw=附加朝向角度（度）",
+  "bld_watermill": { "scale": 2.8, "yaw": 0 },
+  "prop_tree_big": { "scale": 3.0, "yaw": 0 },
+  "prop_flower_a": { "scale": 1.0, "yaw": 0 },
+  "prop_flower_b": { "scale": 1.0, "yaw": 0 }
+}

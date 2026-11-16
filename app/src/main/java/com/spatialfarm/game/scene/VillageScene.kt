@@ -261,11 +261,12 @@ class VillageEntity : Entity() {
             }
 
             val flowerAssets = listOf("Flower_1", "Flower_2", "Flower_3", "Flower_4")
-            repeat(26) {
+            repeat(26) { idx ->
                 val pnt = randPoint()
                 val fa = flowerAssets[rnd.nextInt(flowerAssets.size)]
+                val itemId = if (idx % 2 == 0) "prop_flower_a" else "prop_flower_b"
                 loadModelSmart(
-                    "prop_flower",
+                    itemId,
                     "models/crops/$fa.glb",
                     Vector3(pnt[0], TerrainMesh.height(pnt[0], pnt[1]), pnt[1]),
                     yaw = rnd.nextFloat() * 360f,
@@ -762,7 +763,43 @@ class VillageEntity : Entity() {
     // ---------------------------------------------------------------- 3D 模型加载
 
     private suspend fun loadModels() {
-        // ---- 主街店铺（北）----
+        // ---- Tripo 新地标：湖边水车小屋（东北岸干地，紧邻进村小路）----
+        run {
+            val wx = -10.8f
+            val wz = 6.8f
+            loadOverrideOnly(
+                "bld_watermill",
+                Vector3(wx, TerrainMesh.height(wx, wz) + 0.05f, wz),
+                yaw = 140f,
+                scale = 1.0f,
+            )
+        }
+
+        // ---- Tripo 大树：出生点右前 + 湖畔 ----
+        run {
+            val tx = 5.2f
+            val tz = 1.8f
+            loadModelSmart(
+                "prop_tree_big",
+                "models/nature/CommonTree_2.glb",
+                Vector3(tx, TerrainMesh.height(tx, tz), tz),
+                yaw = 25f,
+                scale = 1.6f,
+            )
+        }
+        run {
+            val tx = -16.5f
+            val tz = 21.5f
+            loadModelSmart(
+                "prop_tree_big",
+                "models/nature/CommonTree_4.glb",
+                Vector3(tx, TerrainMesh.height(tx, tz), tz),
+                yaw = -40f,
+                scale = 1.35f,
+            )
+        }
+
+        // ---- 主街店铺（北） ----
         loadModelSmart("bld_market", "models/village/MarketStand_1.glb", Vector3(-2.6f, 0f, -6.2f), yaw = 180f, scale = 0.55f)   // 梅姨杂货摊
         loadModelSmart("bld_inn", "models/village/Inn.glb", Vector3(0f, 0f, -6.6f), yaw = 180f, scale = 0.42f)                // 胖婶食堂
         loadModelSmart("bld_workshop", "models/village/Blacksmith.glb", Vector3(2.8f, 0f, -6.2f), yaw = 180f, scale = 0.42f)       // 锤叔铁匠铺
@@ -837,6 +874,29 @@ class VillageEntity : Entity() {
 
     /** 摇曳注册表：树 (entity, 基准朝向, 相位) */
     private val swayables = mutableListOf<Triple<Entity, Float, Float>>()
+
+    /** 仅覆盖加载：只有存在 Tripo 覆盖时才生成（新地标用） */
+    private suspend fun loadOverrideOnly(
+        itemId: String,
+        position: Vector3,
+        yaw: Float = 0f,
+        scale: Float = 1f,
+    ) {
+        val overrideUri = TripoOverrides.uriFor(itemId) ?: return
+        val e = runCatching { Entity.loadSuspend(overrideUri) }.getOrNull() ?: return
+        if (!valid) {
+            e.destroy(true)
+            return
+        }
+        val s2 = scale * TripoOverrides.scaleFor(itemId)
+        val y = yaw + TripoOverrides.yawFor(itemId)
+        e.components[TransformComponent::class.java]?.apply {
+            setPosition(position)
+            setEulerAngles(EulerAngles(0f, y, 0f))
+            setScaleVector(Vector3(s2, s2, s2))
+        }
+        addChild(e)
+    }
 
     /** 智能加载：优先使用 Tripo 覆盖模型（models/tripo/<itemId>.glb），失败回退默认模型 */
     private suspend fun loadModelSmart(

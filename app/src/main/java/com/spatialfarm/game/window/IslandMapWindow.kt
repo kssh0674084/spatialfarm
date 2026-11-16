@@ -85,10 +85,26 @@ fun IslandMapWindow() {
                     LegendLine("🌲", "森林丘陵")
                     Spacer(modifier = Modifier.padding(top = 10.dp))
                     Text(
-                        text = "推左摇杆在岛上走动，地图红三角会跟着你移动。",
+                        text = "推左摇杆在岛上走动，红三角跟着你移动。",
                         fontSize = 22.sp,
                         color = PicoTheme.colorScheme.labelSecondary,
                     )
+                    Spacer(modifier = Modifier.padding(top = 8.dp))
+                    com.pico.spatial.ui.design.Button(
+                        onClick = { Locomotion.teleport(0f, -2f) }
+                    ) { Text(text = "🏡 去村庄", fontSize = 22.sp) }
+                    Spacer(modifier = Modifier.padding(top = 4.dp))
+                    com.pico.spatial.ui.design.Button(
+                        onClick = { Locomotion.teleport(-8.3f, 5.2f) }
+                    ) { Text(text = "🌊 去湖边", fontSize = 22.sp) }
+                    Spacer(modifier = Modifier.padding(top = 4.dp))
+                    com.pico.spatial.ui.design.Button(
+                        onClick = { Locomotion.teleport(19f, -12.5f) }
+                    ) { Text(text = "🍃 去风车丘", fontSize = 22.sp) }
+                    Spacer(modifier = Modifier.padding(top = 4.dp))
+                    com.pico.spatial.ui.design.Button(
+                        onClick = { Locomotion.teleport(2f, 40f) }
+                    ) { Text(text = "🏖️ 去海滩", fontSize = 22.sp) }
                 }
             }
         }

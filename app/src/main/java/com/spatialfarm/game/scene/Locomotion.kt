@@ -34,6 +34,14 @@ object Locomotion {
     /** 当前移动速度（m/s） */
     var speed = 3.0f
 
+    /** 传送（地图快速旅行/调试用） */
+    fun teleport(x: Float, z: Float) {
+        if (!TerrainMesh.walkable(x, z)) return
+        playerX = x
+        playerZ = z
+        groundHeight = TerrainMesh.height(x, z)
+    }
+
     /** 当前脚下地面高度（世界坐标） */
     var groundHeight = 0f
         private set
