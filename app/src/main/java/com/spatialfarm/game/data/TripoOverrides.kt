@@ -44,4 +44,11 @@ object TripoOverrides {
 
     fun yawFor(itemId: String): Float =
         manifest?.optJSONObject(itemId)?.optDouble("yaw", 0.0)?.toFloat() ?: 0f
+
+    /**
+     * 模型原点不在底部时的竖直补偿（模型单位，会乘上总缩放）。
+     * Tripo 不少模型以几何中心为原点，落地需要 offsetY = -bbox.min.y。
+     */
+    fun offsetYFor(itemId: String): Float =
+        manifest?.optJSONObject(itemId)?.optDouble("offsetY", 0.0)?.toFloat() ?: 0f
 }

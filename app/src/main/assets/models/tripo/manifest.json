@@ -1,7 +1,75 @@
 {
-  "_comment": "Tripo 模型校准表：scale=整体缩放, yaw=附加朝向角度（度）",
-  "bld_watermill": { "scale": 2.8, "yaw": 0 },
-  "prop_tree_big": { "scale": 3.0, "yaw": 0 },
-  "prop_flower_a": { "scale": 1.0, "yaw": 0 },
-  "prop_flower_b": { "scale": 1.0, "yaw": 0 }
+  "_comment": "Tripo 模型校准表：scale=整体缩放系数, yaw=附加朝向（度）, offsetY=原点竖直补偿（模型单位）",
+  "bld_watermill": {
+    "scale": 2.8,
+    "yaw": 0
+  },
+  "prop_tree_big": {
+    "scale": 3.0,
+    "yaw": 0
+  },
+  "prop_tree_a": {
+    "scale": 5.8,
+    "yaw": 0,
+    "offsetY": 0.443
+  },
+  "prop_tree_b": {
+    "scale": 3.8,
+    "yaw": 0,
+    "offsetY": 0.499
+  },
+  "prop_tree_pine": {
+    "scale": 5.2,
+    "yaw": 0,
+    "offsetY": 0.5
+  },
+  "prop_flower_a": {
+    "scale": 1.0,
+    "yaw": 0
+  },
+  "prop_flower_b": {
+    "scale": 2.2,
+    "yaw": 0,
+    "offsetY": 0.124
+  },
+  "prop_bush": {
+    "scale": 1.0,
+    "yaw": 0,
+    "offsetY": 0.4
+  },
+  "prop_rock": {
+    "scale": 1.0,
+    "yaw": 0,
+    "offsetY": 0.38
+  },
+  "prop_bridge": {
+    "scale": 3.2,
+    "yaw": 0,
+    "offsetY": 0.2
+  },
+  "bld_house": {
+    "scale": 8.0,
+    "yaw": 0,
+    "offsetY": 0.44
+  },
+  "env_mountain": {
+    "scale": 95.0,
+    "yaw": 0,
+    "offsetY": 0.32
+  },
+  "wang_lawang": {
+    "scale": 1.84,
+    "yaw": 0,
+    "offsetY": 0.0
+  },
+  "child_flower": {
+    "scale": 1.9,
+    "yaw": 0,
+    "offsetY": 0.0
+  },
+  "child_yong": {
+    "scale": 2.0,
+    "yaw": 0,
+    "offsetY": 0.0
+  }
 }

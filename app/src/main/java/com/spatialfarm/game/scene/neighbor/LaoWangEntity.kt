@@ -6,6 +6,9 @@ import com.pico.spatial.core.ecs.HoverEffectComponent
 import com.pico.spatial.core.ecs.InteractableComponent
 import com.pico.spatial.core.ecs.ModelEntity
 import com.pico.spatial.core.ecs.TransformComponent
+import com.pico.spatial.core.ecs.animation.AnimationPlayConfig
+import com.pico.spatial.core.ecs.animation.AnimationTransitionMode
+import com.pico.spatial.core.ecs.resource.AnimationResource
 import com.pico.spatial.core.ecs.resource.MeshResource
 import com.pico.spatial.core.ecs.resource.PhysicsMaterialResource
 import com.pico.spatial.core.ecs.resource.ShapeResource
@@ -45,6 +48,9 @@ class LaoWangEntity(
 
     private val scope = CoroutineScope(Dispatchers.Main)
     private var body: Entity? = null
+    private var modelEntity: Entity? = null
+    private var idleRes: AnimationResource? = null
+    private var walkRes: AnimationResource? = null
 
     /** 他家门口的菜地（玩家可偷的目标点） */
     lateinit var stealSpot: StealSpotEntity
@@ -84,13 +90,32 @@ class LaoWangEntity(
                 return@launch
             }
             model.components[TransformComponent::class.java]?.apply {
-                setPosition(Vector3(0f, 0f, 0f))
                 val sc = 0.95f * TripoOverrides.scaleFor("wang_lawang")
+                setPosition(Vector3(0f, TripoOverrides.offsetYFor("wang_lawang") * sc, 0f))
                 setScaleVector(Vector3(sc, sc, sc))
                 setEulerAngles(EulerAngles(0f, 180f + TripoOverrides.yawFor("wang_lawang"), 0f))
             }
             root.addChild(model)
+            modelEntity = model
+            val clips = runCatching { model.getAnimationResources() }.getOrNull().orEmpty()
+            android.util.Log.i("SFARM", "wang clips=" + clips.joinToString { it.getName() })
+            idleRes = clips.firstOrNull { it.getName().contains("idle", true) }?.repeat(-1)
+            walkRes = clips.firstOrNull { it.getName().contains("walk", true) }?.repeat(-1)
+            playClip(idleRes)
         }
+    }
+
+    /** 切换动作（idle / walk） */
+    private fun playClip(res: AnimationResource?) {
+        val m = modelEntity?.takeIf { it.valid } ?: return
+        if (res == null) return
+        runCatching {
+            m.stopAllAnimations()
+            m.playAnimation(
+                res,
+                AnimationPlayConfig(0.25f, AnimationTransitionMode.CROSSFADE, 0, 1f),
+            )
+        }.onFailure { android.util.Log.i("SFARM", "wang play fail: ${it.message}") }
     }
 
     // ---------------------------------------------------------------- 作息循环
@@ -103,10 +128,12 @@ class LaoWangEntity(
 
             // 溜达到田边
             state = State.WALKING
+            playClip(walkRes)
             walk(homePoint, farmPoint, 3200)
 
             // 偷菜！
             state = State.STEALING
+            playClip(idleRes)
             delay(1200)
             trySteal()
             state = State.AT_FARM
@@ -114,13 +141,15 @@ class LaoWangEntity(
 
             // 回家
             state = State.WALKING
+            playClip(walkRes)
             walk(farmPoint, homePoint, 3200)
+            playClip(idleRes)
         }
     }
 
     private suspend fun walk(from: Vector3, to: Vector3, durationMs: Long) {
         val steps = (durationMs / 50).toInt().coerceAtLeast(1)
-        val bobAmp = 0.02f
+        val bobAmp = 0.006f
         for (i in 0..steps) {
             val t = i.toFloat() / steps
             x = from.x + (to.x - from.x) * t

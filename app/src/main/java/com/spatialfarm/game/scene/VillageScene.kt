@@ -103,12 +103,12 @@ class VillageEntity : Entity() {
 
     private fun buildChildren() {
         val daughter = ChildEntity(ChildKind.DAUGHTER) { plots }
-        daughter.components[TransformComponent::class.java]!!.setPosition(Vector3(-3.35f, 0f, 0.2f))
+        daughter.components[TransformComponent::class.java]!!.setPosition(Vector3(-3.2f, 0f, 1.7f))
         addChild(daughter)
         children.add(daughter)
 
         val son = ChildEntity(ChildKind.SON) { plots }
-        son.components[TransformComponent::class.java]!!.setPosition(Vector3(-4.1f, 0f, 0.75f))
+        son.components[TransformComponent::class.java]!!.setPosition(Vector3(-4.3f, 0f, 2.4f))
         addChild(son)
         children.add(son)
     }
@@ -1004,7 +1004,9 @@ class VillageEntity : Entity() {
         val s2 = scale * TripoOverrides.scaleFor(itemId)
         val y = yaw + TripoOverrides.yawFor(itemId)
         e.components[TransformComponent::class.java]?.apply {
-            setPosition(position)
+            setPosition(
+                Vector3(position.x, position.y + TripoOverrides.offsetYFor(itemId) * s2, position.z)
+            )
             setEulerAngles(EulerAngles(0f, y, 0f))
             setScaleVector(Vector3(s2, s2, s2))
         }
@@ -1027,7 +1029,9 @@ class VillageEntity : Entity() {
                 val s = scale * TripoOverrides.scaleFor(itemId)
                 val y = yaw + TripoOverrides.yawFor(itemId)
                 e.components[TransformComponent::class.java]?.apply {
-                    setPosition(position)
+                    setPosition(
+                        Vector3(position.x, position.y + TripoOverrides.offsetYFor(itemId) * s, position.z)
+                    )
                     setEulerAngles(EulerAngles(0f, y, 0f))
                     setScaleVector(Vector3(s, s, s))
                 }
@@ -1077,7 +1081,9 @@ class VillageEntity : Entity() {
             if (ent != null && valid) {
                 val s = scale * TripoOverrides.scaleFor(itemId)
                 ent.components[TransformComponent::class.java]?.apply {
-                    setPosition(position)
+                    setPosition(
+                        Vector3(position.x, position.y + TripoOverrides.offsetYFor(itemId) * s, position.z)
+                    )
                     setEulerAngles(EulerAngles(0f, TripoOverrides.yawFor(itemId), 0f))
                     setScaleVector(Vector3(s, s, s))
                 }

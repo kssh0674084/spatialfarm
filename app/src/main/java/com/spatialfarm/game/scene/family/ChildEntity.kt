@@ -6,6 +6,8 @@ import com.pico.spatial.core.ecs.HoverEffectComponent
 import com.pico.spatial.core.ecs.InteractableComponent
 import com.pico.spatial.core.ecs.ModelEntity
 import com.pico.spatial.core.ecs.TransformComponent
+import com.pico.spatial.core.ecs.animation.AnimationPlayConfig
+import com.pico.spatial.core.ecs.animation.AnimationTransitionMode
 import com.pico.spatial.core.ecs.resource.MeshResource
 import com.pico.spatial.core.ecs.resource.PhysicsMaterialResource
 import com.pico.spatial.core.ecs.resource.ShapeResource
@@ -59,7 +61,9 @@ class ChildEntity(
                 return@launch
             }
             model.components[TransformComponent::class.java]?.apply {
-                setPosition(Vector3(0f, 0f, 0f))
+                setPosition(
+                    Vector3(0f, TripoOverrides.offsetYFor(itemId) * scale, 0f)
+                )
                 setScaleVector(Vector3(scale, scale, scale))
                 setEulerAngles(
                     com.pico.spatial.core.math.EulerAngles(
@@ -68,6 +72,20 @@ class ChildEntity(
                 )
             }
             addChild(model)
+            // 待机动画（Tripo 自动绑骨 + preset:idle）
+            runCatching {
+                val clips = model.getAnimationResources()
+                android.util.Log.i("SFARM", "child $itemId clips=" + clips.joinToString { it.getName() })
+                val idle = clips
+                    .firstOrNull { it.getName().contains("idle", true) }
+                    ?.repeat(-1)
+                if (idle != null) {
+                    model.playAnimation(
+                        idle,
+                        AnimationPlayConfig(0.2f, AnimationTransitionMode.CROSSFADE, 0, 1f),
+                    )
+                }
+            }.onFailure { android.util.Log.i("SFARM", "child anim fail: ${it.message}") }
         }
     }
 
