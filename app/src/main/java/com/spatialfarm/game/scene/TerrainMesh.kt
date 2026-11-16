@@ -71,6 +71,9 @@ object TerrainMesh {
         // 湖泊盆地
         h -= gaussian(x, z, -20f, 16f, 11f) * 2.4f
 
+        // 磨坊水塘（水车小屋西北侧，给水轮一个能浸入的水面）
+        h -= gaussian(x, z, -9.40f, 8.60f, 1.15f) * 2.6f
+
         // 溪流河道下切
         var streamInfluence = 0f
         for (i in 0 until STREAM_PATH.size - 1) {

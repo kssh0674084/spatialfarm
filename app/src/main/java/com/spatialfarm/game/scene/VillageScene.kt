@@ -14,6 +14,7 @@ import com.pico.spatial.core.ecs.resource.TextureResource
 import com.pico.spatial.core.ecs.resource.UnlitMaterial
 import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.EulerAngles
+import com.pico.spatial.core.math.Quat
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
 import com.spatialfarm.game.data.TripoOverrides
@@ -160,7 +161,7 @@ class VillageEntity : Entity() {
         addChild(foam)
 
         val lake = ModelEntity(
-            MeshResource.createBox(BoxOption(Vector3(24f, 0.05f, 22f)).setName("lake")),
+            MeshResource.createBox(BoxOption(Vector3(27f, 0.05f, 25f)).setName("lake")),
             lakeMat
         )
         lake.setName("lake_surface")
@@ -763,15 +764,42 @@ class VillageEntity : Entity() {
     // ---------------------------------------------------------------- 3D 模型加载
 
     private suspend fun loadModels() {
-        // ---- Tripo 新地标：湖边水车小屋（东北岸干地，紧邻进村小路）----
+        // ---- Tripo 新地标：水车小屋（磨坊水塘在西北侧，水轮浸入塘中，朝向进村小路）----
         run {
-            val wx = -10.8f
-            val wz = 6.8f
-            loadOverrideOnly(
+            val wx = -8.3f
+            val wz = 9.7f
+            val mill = loadOverrideOnly(
                 "bld_watermill",
-                Vector3(wx, TerrainMesh.height(wx, wz) + 0.05f, wz),
-                yaw = 140f,
+                Vector3(wx, TerrainMesh.height(wx, wz) + 0.02f, wz),
+                yaw = -135f,
                 scale = 1.0f,
+            )
+            if (mill != null) {
+                attachWaterWheel(mill)
+                // 石砌基座：补上房身与水下地面之间的空隙
+                val plinth = ModelEntity(
+                    MeshResource.createBox(BoxOption(Vector3(2.2f, 1.6f, 1.6f)).setName("mill_plinth")),
+                    mat("mill_plinth", Color4(0.50f, 0.47f, 0.43f, 1f)),
+                )
+                plinth.setName("mill_plinth")
+                plinth.components[TransformComponent::class.java]!!.apply {
+                    setPosition(Vector3(wx, TerrainMesh.height(wx, wz) - 0.75f, wz))
+                    setEulerAngles(EulerAngles(0f, -135f, 0f))
+                }
+                addChild(plinth)
+            }
+            // 水塘边点缀石头
+            val pondX = -9.40f
+            val pondZ = 8.60f
+            loadModelSmart(
+                "prop_rock", "models/nature/Rock_1.glb",
+                Vector3(pondX - 1.05f, TerrainMesh.height(pondX - 1.05f, pondZ + 0.5f), pondZ + 0.5f),
+                yaw = 20f, scale = 0.55f,
+            )
+            loadModelSmart(
+                "prop_rock", "models/nature/Rock_3.glb",
+                Vector3(pondX + 0.2f, TerrainMesh.height(pondX + 0.2f, pondZ - 1.05f), pondZ - 1.05f),
+                yaw = 140f, scale = 0.45f,
             )
         }
 
@@ -872,21 +900,63 @@ class VillageEntity : Entity() {
         loadModelSmart("prop_rock", "models/nature/Rock_3.glb", Vector3(1.6f, 0f, 0.9f))
     }
 
+    // ---------------------------------------------------------------- 水车（独立轮子 + 旋转动画）
+
+    private var wheelEntity: Entity? = null
+    private var wheelTickerStarted = false
+
+    /**
+     * 水车轮子在 Tripo 模型里是独立连通块，已拆成 bld_watermill_wheel.glb
+     * （几何以轴心为原点、轴沿本地 +Z）。挂到房身下，随父节点朝向；
+     * 轮子下沉 0.12 个模型单位（×2.8 后约 0.34m）让下缘浸入湖水。
+     */
+    private suspend fun attachWaterWheel(house: Entity) {
+        val uri = TripoOverrides.uriFor("bld_watermill_wheel") ?: return
+        val wheel = runCatching { Entity.loadSuspend(uri) }.getOrNull() ?: return
+        if (!valid) {
+            wheel.destroy(true)
+            return
+        }
+        wheel.components[TransformComponent::class.java]?.apply {
+            setPosition(Vector3(0.030f, 0.0516f, 0.3985f))
+            setScaleVector(Vector3(1.55f, 1.55f, 1.55f))
+            setQuaternion(Quat(Vector3(0f, 0f, 1f), 0f))
+        }
+        house.addChild(wheel)
+        wheelEntity = wheel
+        startWheelTicker()
+    }
+
+    private fun startWheelTicker() {
+        if (wheelTickerStarted) return
+        wheelTickerStarted = true
+        ioScope.launch {
+            var angle = 0f
+            while (valid) {
+                delay(33)
+                val wheel = wheelEntity?.takeIf { it.valid } ?: continue
+                angle -= 0.05f // ≈1.5 rad/s，与溪流方向一致（俯视顺时针）
+                wheel.components[TransformComponent::class.java]
+                    ?.setQuaternion(Quat(Vector3(0f, 0f, 1f), angle))
+            }
+        }
+    }
+
     /** 摇曳注册表：树 (entity, 基准朝向, 相位) */
     private val swayables = mutableListOf<Triple<Entity, Float, Float>>()
 
-    /** 仅覆盖加载：只有存在 Tripo 覆盖时才生成（新地标用） */
+    /** 仅覆盖加载：只有存在 Tripo 覆盖时才生成（新地标用），返回根实体 */
     private suspend fun loadOverrideOnly(
         itemId: String,
         position: Vector3,
         yaw: Float = 0f,
         scale: Float = 1f,
-    ) {
-        val overrideUri = TripoOverrides.uriFor(itemId) ?: return
-        val e = runCatching { Entity.loadSuspend(overrideUri) }.getOrNull() ?: return
+    ): Entity? {
+        val overrideUri = TripoOverrides.uriFor(itemId) ?: return null
+        val e = runCatching { Entity.loadSuspend(overrideUri) }.getOrNull() ?: return null
         if (!valid) {
             e.destroy(true)
-            return
+            return null
         }
         val s2 = scale * TripoOverrides.scaleFor(itemId)
         val y = yaw + TripoOverrides.yawFor(itemId)
@@ -896,6 +966,7 @@ class VillageEntity : Entity() {
             setScaleVector(Vector3(s2, s2, s2))
         }
         addChild(e)
+        return e
     }
 
     /** 智能加载：优先使用 Tripo 覆盖模型（models/tripo/<itemId>.glb），失败回退默认模型 */
