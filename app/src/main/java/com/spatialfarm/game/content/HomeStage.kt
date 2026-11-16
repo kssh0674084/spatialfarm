@@ -24,7 +24,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pico.spatial.core.ecs.AnchorComponent
 import com.pico.spatial.core.ecs.Entity
+import com.pico.spatial.core.ecs.LookAtComponent
+import com.pico.spatial.core.ecs.anchor.AnchorTarget
 import com.pico.spatial.core.ecs.TransformComponent
 import com.pico.spatial.core.math.Vector3
 import com.pico.spatial.ui.design.Button
@@ -54,6 +57,8 @@ import com.spatialfarm.game.window.WINDOW_ID_TOOLSHOP
 private class SceneHolder {
     var village: VillageEntity? = null
     var menuEntity: Entity? = null
+    var menuBtnEntity: Entity? = null
+    var panelEntity: Entity? = null
 }
 
 /**
@@ -80,6 +85,8 @@ fun HomeStage() {
             sceneHolder.village = null
         }
     }
+
+
 
     SpatialView(
         modifier =
@@ -140,8 +147,26 @@ fun HomeStage() {
                     content.addEntity(this)
                 }
             }
-            place("menu_btn", Vector3(0.5f, 1.2f, -0.85f))
-            place("panel", Vector3(0f, 1.5f, -1.4f))
+            // ☰ 菜单按钮：锚定相机（右下前方，永远在手边）
+            val menuBtnRoot = Entity()
+            menuBtnRoot.setName("menu_btn_anchor")
+            menuBtnRoot.components[AnchorComponent::class.java] =
+                AnchorComponent(AnchorTarget.createCameraTarget()).apply {
+                    positionOffset = Vector3(0.42f, -0.30f, -0.85f)
+                }
+            content.addEntity(menuBtnRoot)
+            attachments.entity(id = "menu_btn")?.let { menuBtnRoot.addChild(it) }
+
+            // 主面板：锚定相机（正前方 1.35 米，跟随视线）
+            val panelRoot = Entity()
+            panelRoot.setName("panel_anchor")
+            panelRoot.components[AnchorComponent::class.java] =
+                AnchorComponent(AnchorTarget.createCameraTarget()).apply {
+                    positionOffset = Vector3(0f, -0.10f, -1.35f)
+                }
+            content.addEntity(panelRoot)
+            attachments.entity(id = "panel")?.let { panelRoot.addChild(it) }
+
             place("plot_menu", Vector3(0f, -10f, 0f))
             // 店铺招牌（房子上方的功能提示）
             place("sign_seed", Vector3(-2.6f, 2.75f, -6.2f))
@@ -149,6 +174,15 @@ fun HomeStage() {
             place("sign_tool", Vector3(2.8f, 3.0f, -6.2f))
 
             sceneHolder.menuEntity = attachments.entity(id = "plot_menu")
+            sceneHolder.menuBtnEntity = attachments.entity(id = "menu_btn")
+            sceneHolder.panelEntity = attachments.entity(id = "panel")
+            // 田垄菜单面向玩家（世界锚定，但可读）
+            sceneHolder.menuEntity?.components?.set(
+                LookAtComponent().apply {
+                    setViewerAsTarget()
+                    alignLocalUpToWorldUp = true
+                }
+            )
         },
         attachments = {
             // ── 呼出按钮（常驻小按钮）────────────────────────
