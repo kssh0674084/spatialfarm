@@ -50,6 +50,12 @@ fun SeedShopWindow() {
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
+                    text = "🌟 Lv.${GameState.level}",
+                    style = PicoTheme.typography.titleMedium.copy(fontSize = 30.sp),
+                    color = PicoTheme.colorScheme.labelPrimary,
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
                     text = "💰 ¥${GameState.wallet}",
                     style = PicoTheme.typography.titleMedium.copy(fontSize = 34.sp),
                     color = PicoTheme.colorScheme.labelPrimary,
@@ -75,6 +81,8 @@ fun SeedShopWindow() {
 @Composable
 private fun SeedRow(plant: PlantDef) {
     val owned = GameState.seedCount(plant.id)
+    val need = GameState.requiredLevel(plant)
+    val locked = GameState.level < need
     Row(
         modifier =
             Modifier.fillMaxWidth()
@@ -98,6 +106,14 @@ private fun SeedRow(plant: PlantDef) {
                     style = PicoTheme.typography.bodySmall.copy(fontSize = 22.sp),
                     color = PicoTheme.colorScheme.labelTertiary,
                 )
+                if (locked) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "🔒 Lv.$need",
+                        style = PicoTheme.typography.bodySmall.copy(fontSize = 22.sp),
+                        color = PicoTheme.colorScheme.labelSecondary,
+                    )
+                }
             }
             Text(
                 text = "⭐".repeat(plant.difficulty) + "  ${plant.season}季 · ${plant.growDays}天成熟 · 卖 ¥${plant.baseSellPrice}",
@@ -108,7 +124,10 @@ private fun SeedRow(plant: PlantDef) {
         Spacer(modifier = Modifier.width(12.dp))
         Button(onClick = { GameState.buySeed(plant) }) {
             Box(modifier = Modifier.padding(horizontal = 6.dp)) {
-                Text(text = "¥${plant.seedPrice}", fontSize = 26.sp)
+                Text(
+                    text = if (locked) "Lv.$need" else "¥${plant.seedPrice}",
+                    fontSize = 26.sp,
+                )
             }
         }
     }

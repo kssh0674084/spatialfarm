@@ -4,6 +4,8 @@ import com.pico.spatial.core.ecs.DirectionalLightComponent
 import com.pico.spatial.core.ecs.Entity
 import com.pico.spatial.core.ecs.ModelEntity
 import com.pico.spatial.core.ecs.TransformComponent
+import com.pico.spatial.core.ecs.animation.AnimationPlayConfig
+import com.pico.spatial.core.ecs.animation.AnimationTransitionMode
 import com.pico.spatial.core.ecs.resource.BoxOption
 import com.pico.spatial.core.ecs.resource.Material
 import com.pico.spatial.core.ecs.resource.MaterialCullingMode
@@ -157,10 +159,10 @@ class VillageEntity : Entity() {
             }
         )
         foam.setName("shore_foam")
-        foamEntity = foam
+        // 岸线泡沫环看起来像海上的白带，先不加入场景
+        foamEntity = null
         foam.components[TransformComponent::class.java]!!
             .setPosition(Vector3(0f, TerrainMesh.SEA_LEVEL + 0.02f, 0f))
-        addChild(foam)
 
         val lake = ModelEntity(
             MeshResource.createBox(BoxOption(Vector3(27f, 0.05f, 25f)).setName("lake")),
@@ -807,6 +809,11 @@ class VillageEntity : Entity() {
     // ---------------------------------------------------------------- 3D 模型加载
 
     private suspend fun loadModels() {
+        // ---- 店主 NPC（待机动画）----
+        loadIdleCharacter("mei_yi", Vector3(-2.6f, 0f, -5.2f), yaw = 180f)
+        loadIdleCharacter("pang_shen", Vector3(0f, 0f, -5.4f), yaw = 180f)
+        loadIdleCharacter("chui_shu", Vector3(2.8f, 0f, -5.2f), yaw = 180f)
+
         // ---- Tripo 新地标：水车小屋（磨坊水塘在西北侧，水轮浸入塘中，朝向进村小路）----
         run {
             val wx = -8.3f
@@ -843,6 +850,16 @@ class VillageEntity : Entity() {
                 "prop_rock", "models/nature/Rock_3.glb",
                 Vector3(pondX + 0.2f, TerrainMesh.height(pondX + 0.2f, pondZ - 1.05f), pondZ - 1.05f),
                 yaw = 140f, scale = 0.45f,
+            )
+        }
+
+        // ---- Tripo 雪山（远景天际线主峰）----
+        run {
+            loadOverrideOnly(
+                "env_mountain",
+                Vector3(-95f, TerrainMesh.SEA_LEVEL, -185f),
+                yaw = 25f,
+                scale = 1.0f,
             )
         }
 
@@ -987,6 +1004,41 @@ class VillageEntity : Entity() {
 
     /** 摇曳注册表：树 (entity, 基准朝向, 相位) */
     private val swayables = mutableListOf<Triple<Entity, Float, Float>>()
+
+    /** 加载一个带待机动画的 Tripo 角色（店主等静态 NPC） */
+    private suspend fun loadIdleCharacter(
+        itemId: String,
+        position: Vector3,
+        yaw: Float = 0f,
+        scale: Float = 1f,
+    ) {
+        val uri = TripoOverrides.uriFor(itemId) ?: return
+        val e = runCatching { Entity.loadSuspend(uri) }.getOrNull() ?: return
+        if (!valid) {
+            e.destroy(true)
+            return
+        }
+        val s = scale * TripoOverrides.scaleFor(itemId)
+        e.components[TransformComponent::class.java]?.apply {
+            setPosition(
+                Vector3(position.x, position.y + TripoOverrides.offsetYFor(itemId) * s, position.z)
+            )
+            setEulerAngles(EulerAngles(0f, yaw + TripoOverrides.yawFor(itemId), 0f))
+            setScaleVector(Vector3(s, s, s))
+        }
+        addChild(e)
+        runCatching {
+            val idle = e.getAnimationResources()
+                .firstOrNull { it.getName().contains("idle", true) }
+                ?.repeat(-1)
+            if (idle != null) {
+                e.playAnimation(
+                    idle,
+                    AnimationPlayConfig(0.2f, AnimationTransitionMode.CROSSFADE, 0, 1f),
+                )
+            }
+        }
+    }
 
     /** 仅覆盖加载：只有存在 Tripo 覆盖时才生成（新地标用），返回根实体 */
     private suspend fun loadOverrideOnly(

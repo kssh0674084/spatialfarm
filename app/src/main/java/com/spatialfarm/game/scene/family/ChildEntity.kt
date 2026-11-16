@@ -75,7 +75,6 @@ class ChildEntity(
             // 待机动画（Tripo 自动绑骨 + preset:idle）
             runCatching {
                 val clips = model.getAnimationResources()
-                android.util.Log.i("SFARM", "child $itemId clips=" + clips.joinToString { it.getName() })
                 val idle = clips
                     .firstOrNull { it.getName().contains("idle", true) }
                     ?.repeat(-1)
@@ -85,7 +84,7 @@ class ChildEntity(
                         AnimationPlayConfig(0.2f, AnimationTransitionMode.CROSSFADE, 0, 1f),
                     )
                 }
-            }.onFailure { android.util.Log.i("SFARM", "child anim fail: ${it.message}") }
+            }
         }
     }
 

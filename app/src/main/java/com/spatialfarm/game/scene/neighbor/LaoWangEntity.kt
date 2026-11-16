@@ -98,7 +98,6 @@ class LaoWangEntity(
             root.addChild(model)
             modelEntity = model
             val clips = runCatching { model.getAnimationResources() }.getOrNull().orEmpty()
-            android.util.Log.i("SFARM", "wang clips=" + clips.joinToString { it.getName() })
             idleRes = clips.firstOrNull { it.getName().contains("idle", true) }?.repeat(-1)
             walkRes = clips.firstOrNull { it.getName().contains("walk", true) }?.repeat(-1)
             playClip(idleRes)
@@ -115,7 +114,7 @@ class LaoWangEntity(
                 res,
                 AnimationPlayConfig(0.25f, AnimationTransitionMode.CROSSFADE, 0, 1f),
             )
-        }.onFailure { android.util.Log.i("SFARM", "wang play fail: ${it.message}") }
+        }
     }
 
     // ---------------------------------------------------------------- 作息循环

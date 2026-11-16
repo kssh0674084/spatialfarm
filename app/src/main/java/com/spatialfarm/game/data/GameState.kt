@@ -58,6 +58,9 @@ object GameState {
     fun save() {
         val json = JSONObject()
         json.put("wallet", wallet)
+        json.put("welcomed", welcomed)
+        json.put("xp", xp)
+        json.put("level", level)
         json.put("plotsOwned", plotsOwned)
         json.put("sprinkler", hasSprinkler)
         json.put("fertilizer", fertilizer)
@@ -103,6 +106,9 @@ object GameState {
         val json = SaveStore.read()
         if (json != null) runCatching {
             wallet = json.optInt("wallet", 5000)
+            welcomed = json.optBoolean("welcomed", false)
+            xp = json.optInt("xp", 0)
+            level = json.optInt("level", 1).coerceAtLeast(1)
             plotsOwned = json.optInt("plotsOwned", 2)
             hasSprinkler = json.optBoolean("sprinkler", false)
             fertilizer = json.optInt("fertilizer", 0)
@@ -155,6 +161,9 @@ object GameState {
         SaveStore.clear()
         plotSnapshots.clear()
         wallet = 5000
+        welcomed = false
+        xp = 0
+        level = 1
         plotsOwned = 2
         hasSprinkler = false
         fertilizer = 0
@@ -167,6 +176,45 @@ object GameState {
         harvestLog.clear()
         hint = "重新开始新生活 🌱"
     }
+    /** 是否看过首次欢迎面板 */
+    var welcomed by mutableStateOf(false)
+        private set
+
+    fun markWelcomed() {
+        welcomed = true
+        save()
+    }
+
+    /** 种植等级与经验（收获/卖菜/委托获得） */
+    var level by mutableIntStateOf(1)
+        private set
+    var xp by mutableIntStateOf(0)
+        private set
+
+    /** 升到下一级所需经验 */
+    fun xpToNext(): Int = 100 + (level - 1) * 80
+
+    /** 获得经验，可能连续升级 */
+    fun addXp(amount: Int) {
+        if (amount <= 0) return
+        xp += amount
+        var leveled = false
+        while (xp >= xpToNext()) {
+            xp -= xpToNext()
+            level++
+            leveled = true
+        }
+        if (leveled) hint = "🌟 升级到 Lv.$level！可在梅姨的种子铺解锁新作物"
+    }
+
+    /** 某种子需要的等级（按价格分档） */
+    fun requiredLevel(plant: PlantDef): Int = when {
+        plant.seedPrice <= 80 -> 1
+        plant.seedPrice <= 200 -> 2
+        plant.seedPrice <= 400 -> 3
+        else -> 4
+    }
+
     /** 钱包（元）。初始 5000 元是设计定值。 */
     var wallet by mutableIntStateOf(5000)
         private set
@@ -301,6 +349,11 @@ object GameState {
 
     /** 购买种子；成功返回 true。 */
     fun buySeed(plant: PlantDef): Boolean {
+        val need = requiredLevel(plant)
+        if (level < need) {
+            hint = "${plant.name}种子需要 Lv.$need（当前 Lv.$level），多种点菜升级吧 🌱"
+            return false
+        }
         if (wallet < plant.seedPrice) {
             hint = "钱不够啦，去卖点菜吧 💰"
             return false
@@ -347,6 +400,7 @@ object GameState {
     fun addProduce(plantId: String, count: Int = 1) {
         produce[plantId] = (produce[plantId] ?: 0) + count
         harvestLog[plantId] = (harvestLog[plantId] ?: 0) + count
+        addXp(20 * count)
     }
 
     /** 今天是否集市日（周六） */
@@ -370,6 +424,7 @@ object GameState {
         if (n >= owned) produce.remove(plantId) else produce[plantId] = owned - n
         val income = currentSellPrice(def.id) * n
         earn(income)
+        addXp(8 * n)
         return income
     }
 

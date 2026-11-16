@@ -74,6 +74,7 @@ fun HomeStage() {
     val sceneHolder = remember { SceneHolder() }
     var plotMenu by remember { mutableStateOf<FarmPlotEntity?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
+    var welcomeOpen by remember { mutableStateOf(!GameState.welcomed) }
 
     DisposableEffect(Unit) {
         GameState.onScarecrowBought = {
@@ -167,6 +168,16 @@ fun HomeStage() {
             content.addEntity(panelRoot)
             attachments.entity(id = "panel")?.let { panelRoot.addChild(it) }
 
+            // 首次进入的欢迎/指引面板：锚定相机
+            val welcomeRoot = Entity()
+            welcomeRoot.setName("welcome_anchor")
+            welcomeRoot.components[AnchorComponent::class.java] =
+                AnchorComponent(AnchorTarget.createCameraTarget()).apply {
+                    positionOffset = Vector3(0f, 0f, -1.0f)
+                }
+            content.addEntity(welcomeRoot)
+            attachments.entity(id = "welcome")?.let { welcomeRoot.addChild(it) }
+
             place("plot_menu", Vector3(0f, -10f, 0f))
             // 店铺招牌（房子上方的功能提示）
             place("sign_seed", Vector3(-2.6f, 2.75f, -6.2f))
@@ -190,6 +201,65 @@ fun HomeStage() {
                 Button(onClick = { menuOpen = true }) {
                     Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                         Text(text = "☰ 菜单", fontSize = 30.sp)
+                    }
+                }
+            }
+
+            // ── 首次欢迎面板 ────────────────────────────────
+            AttachmentPanel(id = "welcome") {
+                if (!welcomeOpen) {
+                    Box(modifier = Modifier.size(1.dp))
+                } else {
+                    Box(
+                        modifier =
+                            Modifier
+                                .width(560.dp)
+                                .clip(RoundedCornerShape(22.dp))
+                                .backgroundMaterial(true, Material.Regular),
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(horizontal = 34.dp, vertical = 26.dp),
+                        ) {
+                            Text(
+                                text = "🌱 欢迎来到清风岛",
+                                color = PicoTheme.colorScheme.labelPrimary,
+                                style = PicoTheme.typography.titleLarge.copy(fontSize = 54.sp, lineHeight = 66.sp),
+                            )
+                            Spacer(modifier = Modifier.padding(top = 10.dp))
+                            Text(
+                                text = "• 屋前的田是你的：点田垄 → 选种子 / 浇水 / 收获",
+                                color = PicoTheme.colorScheme.labelPrimary,
+                                style = PicoTheme.typography.bodyMedium.copy(fontSize = 32.sp, lineHeight = 42.sp),
+                            )
+                            Text(
+                                text = "• 点房子开店：梅姨卖种子、胖婶收菜、锤叔卖工具",
+                                color = PicoTheme.colorScheme.labelPrimary,
+                                style = PicoTheme.typography.bodyMedium.copy(fontSize = 32.sp, lineHeight = 42.sp),
+                            )
+                            Text(
+                                text = "• 头顶「☰ 菜单」有地图、图鉴、委托和一键照料",
+                                color = PicoTheme.colorScheme.labelPrimary,
+                                style = PicoTheme.typography.bodyMedium.copy(fontSize = 32.sp, lineHeight = 42.sp),
+                            )
+                            Text(
+                                text = "• 攒钱扩田、升级解锁新作物；小心邻居老王偷菜 😏",
+                                color = PicoTheme.colorScheme.labelPrimary,
+                                style = PicoTheme.typography.bodyMedium.copy(fontSize = 32.sp, lineHeight = 42.sp),
+                            )
+                            Spacer(modifier = Modifier.padding(top = 14.dp))
+                            Button(
+                                onClick = {
+                                    welcomeOpen = false
+                                    GameState.markWelcomed()
+                                    GameState.postHint("从一块田开始你的田园生活 🌱")
+                                }
+                            ) {
+                                Box(modifier = Modifier.padding(horizontal = 10.dp)) {
+                                    Text(text = "🌱 开始田园生活", fontSize = 36.sp)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -239,6 +309,14 @@ fun HomeStage() {
                                     style = PicoTheme.typography.titleMedium.copy(fontSize = 32.sp),
                                 )
                             }
+
+                            // 等级 / 经验
+                            Text(
+                                text = "🌟 Lv.${GameState.level} · ${GameState.xp}/${GameState.xpToNext()} XP",
+                                color = PicoTheme.colorScheme.labelPrimary,
+                                style = PicoTheme.typography.bodyMedium.copy(fontSize = 24.sp),
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
 
                             // 田垄状态栏
                             run { GameState.plotRevision }
@@ -306,6 +384,25 @@ fun HomeStage() {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Button(onClick = { sceneHolder.village?.toggleDiorama() }) {
                                     Text(text = "🔭 沙盘", fontSize = 24.sp)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                var resetConfirm by remember { mutableStateOf(false) }
+                                Button(
+                                    onClick = {
+                                        if (resetConfirm) {
+                                            GameState.resetAll()
+                                            resetConfirm = false
+                                            GameState.postHint("已重置存档，重启应用后完全生效")
+                                        } else {
+                                            resetConfirm = true
+                                            GameState.postHint("再点一次「确认重置」清空存档")
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        text = if (resetConfirm) "⚠️ 确认重置" else "🗑 重置",
+                                        fontSize = 24.sp,
+                                    )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 var childIdx by remember { mutableIntStateOf(0) }

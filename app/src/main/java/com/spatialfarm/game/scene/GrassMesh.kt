@@ -130,12 +130,12 @@ object GrassMesh {
 
         for (t in tufts) {
             val dry = t.tint > 0.86f
-            val baseR = if (dry) 0.42f else 0.28f
-            val baseG = if (dry) 0.46f else 0.45f
-            val baseB = if (dry) 0.20f else 0.22f
-            val tipR = if (dry) 0.80f else 0.62f
-            val tipG = if (dry) 0.78f else 0.81f
-            val tipB = if (dry) 0.36f else 0.36f
+            val baseR = if (dry) 0.38f else 0.24f
+            val baseG = if (dry) 0.41f else 0.40f
+            val baseB = if (dry) 0.16f else 0.17f
+            val tipR = if (dry) 0.76f else 0.56f
+            val tipG = if (dry) 0.73f else 0.76f
+            val tipB = if (dry) 0.31f else 0.32f
             val tintVar = 0.94f + 0.12f * t.tint
 
             for (blade in 0 until bladesPerTuft) {

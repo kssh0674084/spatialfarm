@@ -43,7 +43,7 @@
     "offsetY": 0.38
   },
   "prop_bridge": {
-    "scale": 3.2,
+    "scale": 4.5,
     "yaw": 0,
     "offsetY": 0.2
   },
@@ -68,6 +68,21 @@
     "offsetY": 0.0
   },
   "child_yong": {
+    "scale": 2.0,
+    "yaw": 0,
+    "offsetY": 0.0
+  },
+  "mei_yi": {
+    "scale": 1.68,
+    "yaw": 0,
+    "offsetY": 0.0
+  },
+  "pang_shen": {
+    "scale": 1.68,
+    "yaw": 0,
+    "offsetY": 0.0
+  },
+  "chui_shu": {
     "scale": 2.0,
     "yaw": 0,
     "offsetY": 0.0

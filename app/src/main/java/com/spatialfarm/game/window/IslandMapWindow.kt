@@ -91,7 +91,7 @@ fun IslandMapWindow() {
                     )
                     Spacer(modifier = Modifier.padding(top = 8.dp))
                     com.pico.spatial.ui.design.Button(
-                        onClick = { Locomotion.teleport(0f, 4.5f) }
+                        onClick = { Locomotion.teleport(0f, -2f) }
                     ) { Text(text = "🏡 去村庄", fontSize = 22.sp) }
                     Spacer(modifier = Modifier.padding(top = 4.dp))
                     com.pico.spatial.ui.design.Button(
@@ -105,6 +105,7 @@ fun IslandMapWindow() {
                     com.pico.spatial.ui.design.Button(
                         onClick = { Locomotion.teleport(2f, 40f) }
                     ) { Text(text = "🏖️ 去海滩", fontSize = 22.sp) }
+
                 }
             }
         }
