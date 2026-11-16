@@ -55,11 +55,13 @@ class FarmPlotEntity(
         setName("plot_$index")
 
         // 土壤（荒地为草绿色，购入后变棕色田垄）
-        val soil = ModelEntity(soilMesh(), if (locked) grassMaterial() else soilMaterial())
+        val soil = ModelEntity(soilMesh(), soilMaterial())
         soil.setName("plot_${index}_soil")
         soil.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, PLOT_T / 2f, 0f))
         soilChild = soil
         addChild(soil)
+        addFurrows(soil)
+        if (locked) addForSaleStake()
 
         // 交互：碰撞盒 + 可交互 + 悬停高亮
         components[CollisionComponent::class.java] =
@@ -92,6 +94,50 @@ class FarmPlotEntity(
         refreshPlantModel()
     }
 
+    /** 荒地木牌：提示这块地可开垦 */
+    private fun addForSaleStake() {
+        val stakeMat = UnlitMaterial.create().apply {
+            setBaseColor(Color4(0.52f, 0.38f, 0.26f, 1f))
+            toGlobal()
+        }
+        val boardMat = UnlitMaterial.create().apply {
+            setBaseColor(Color4(0.80f, 0.66f, 0.45f, 1f))
+            toGlobal()
+        }
+        val stake = ModelEntity(
+            MeshResource.createBox(BoxOption(Vector3(0.055f, 0.5f, 0.055f)).setCornerRadius(0.01f).setName("plot_stake")),
+            stakeMat,
+        )
+        stake.components[TransformComponent::class.java]!!.setPosition(
+            Vector3(-PLOT_W * 0.42f, PLOT_T + 0.25f, PLOT_D * 0.34f)
+        )
+        addChild(stake)
+        val board = ModelEntity(
+            MeshResource.createBox(BoxOption(Vector3(0.22f, 0.14f, 0.03f)).setCornerRadius(0.02f).setName("plot_board")),
+            boardMat,
+        )
+        board.components[TransformComponent::class.java]!!.setPosition(
+            Vector3(-PLOT_W * 0.42f, PLOT_T + 0.52f, PLOT_D * 0.34f)
+        )
+        addChild(board)
+    }
+
+    /** 田垄沟纹：4 条深色细条，让田地有“耕过”的质感 */
+    private fun addFurrows(soil: ModelEntity) {
+        for (i in 0 until 4) {
+            val z = -PLOT_D * 0.33f + i * (PLOT_D * 0.66f / 3f)
+            val strip = ModelEntity(
+                furrowMesh(),
+                furrowMaterial(),
+            )
+            strip.setName("plot_${index}_furrow_$i")
+            strip.components[TransformComponent::class.java]!!.apply {
+                setPosition(Vector3(0f, PLOT_T / 2f + 0.012f, z))
+            }
+            soil.addChild(strip)
+        }
+    }
+
     /** 记录快照到全局存档 */
     private fun snapshot() {
         GameState.snapshotPlot(index, plant?.id, stage, stageProgress, quality)
@@ -107,6 +153,7 @@ class FarmPlotEntity(
         soil.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, PLOT_T / 2f, 0f))
         soilChild = soil
         addChild(soil)
+        addFurrows(soil)
     }
 
     /** 用户点按田垄。 */
@@ -344,9 +391,28 @@ class FarmPlotEntity(
 
         fun grassMaterial(): UnlitMaterial =
             sharedGrassMat ?: UnlitMaterial.create().apply {
-                setBaseColor(Color4(0.66f, 0.80f, 0.55f, 1f))
+                setBaseColor(Color4(0.56f, 0.71f, 0.43f, 1f))
                 toGlobal()
             }.also { sharedGrassMat = it }
+
+        var sharedFurrowMesh: MeshResource? = null
+        var sharedFurrowMat: UnlitMaterial? = null
+
+        fun furrowMesh(): MeshResource =
+            sharedFurrowMesh ?: MeshResource.createBox(
+                BoxOption(Vector3(PLOT_W * 0.86f, 0.018f, 0.055f))
+                    .setCornerRadius(0.02f)
+                    .setName("plot_furrow")
+            ).also {
+                it.toGlobal()
+                sharedFurrowMesh = it
+            }
+
+        fun furrowMaterial(): UnlitMaterial =
+            sharedFurrowMat ?: UnlitMaterial.create().apply {
+                setBaseColor(Color4(0.44f, 0.32f, 0.24f, 1f))
+                toGlobal()
+            }.also { sharedFurrowMat = it }
 
         /** 各作物的显示缩放（模型原始尺寸不同）。 */
         fun cropScale(p: PlantDef): Float =

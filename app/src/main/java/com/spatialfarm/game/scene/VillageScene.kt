@@ -136,8 +136,8 @@ class VillageEntity : Entity() {
         }.also { materials.getOrPut(key) { it } }
 
     private fun buildSeaAndLakes() {
-        val seaMat = waterMat("sea", Color4(0.40f, 0.77f, 0.90f, 1f))
-        val lakeMat = waterMat("lake", Color4(0.44f, 0.80f, 0.93f, 1f))
+        val seaMat = waterMat("sea", Color4(0.36f, 0.70f, 0.84f, 1f))
+        val lakeMat = waterMat("lake", Color4(0.40f, 0.74f, 0.88f, 1f))
 
         val sea = ModelEntity(
             MeshResource.createBox(BoxOption(Vector3(420f, 0.06f, 420f)).setName("sea")),
@@ -156,6 +156,7 @@ class VillageEntity : Entity() {
             }
         )
         foam.setName("shore_foam")
+        foamEntity = foam
         foam.components[TransformComponent::class.java]!!
             .setPosition(Vector3(0f, TerrainMesh.SEA_LEVEL + 0.02f, 0f))
         addChild(foam)
@@ -191,19 +192,56 @@ class VillageEntity : Entity() {
             }
             addChild(seg)
         }
+
+        startWaterTicker()
+    }
+
+    // ---------------------------------------------------------------- 水面呼吸动画
+
+    private var waterTickerStarted = false
+    private var foamEntity: Entity? = null
+
+    private fun startWaterTicker() {
+        if (waterTickerStarted) return
+        waterTickerStarted = true
+        ioScope.launch {
+            var t = 0f
+            while (valid) {
+                delay(120)
+                t += 0.12f
+                val k = 0.5f + 0.5f * kotlin.math.sin(t * 0.8f)
+                (materials["sea"] as? UnlitMaterial)?.setBaseColor(
+                    lerpColorV(Color4(0.35f, 0.68f, 0.83f, 1f), Color4(0.40f, 0.75f, 0.88f, 1f), k)
+                )
+                (materials["lake"] as? UnlitMaterial)?.setBaseColor(
+                    lerpColorV(Color4(0.39f, 0.72f, 0.86f, 1f), Color4(0.45f, 0.79f, 0.91f, 1f), k)
+                )
+                (materials["stream"] as? UnlitMaterial)?.setBaseColor(
+                    lerpColorV(Color4(0.47f, 0.80f, 0.92f, 1f), Color4(0.53f, 0.85f, 0.95f, 1f), k)
+                )
+                foamEntity?.takeIf { it.valid }?.components?.get(TransformComponent::class.java)?.apply {
+                    val s = 1f + 0.004f * kotlin.math.sin(t * 1.6f)
+                    setScaleVector(Vector3(s, 1f, s))
+                }
+            }
+        }
+    }
+
+    private fun lerpColorV(a: Color4, b: Color4, t: Float): Color4 {
+        val k = t.coerceIn(0f, 1f)
+        return Color4(
+            a.red + (b.red - a.red) * k,
+            a.green + (b.green - a.green) * k,
+            a.blue + (b.blue - a.blue) * k,
+            1f,
+        )
     }
 
     // ---------------------------------------------------------------- 远山天际线
 
     private fun buildMountains() {
-        val rockMat = UnlitMaterial.create().apply {
-            setBaseColor(Color4(0.55f, 0.62f, 0.76f, 1f))
-            toGlobal()
-        }
-        val snowMat = UnlitMaterial.create().apply {
-            setBaseColor(Color4(0.96f, 0.97f, 1f, 1f))
-            toGlobal()
-        }
+        val vertexColorMat = mat("mountain_vertexcolor", Color4(1f, 1f, 1f, 1f))
+        val meshes = (0 until 3).map { seed -> MountainMesh.create(seed).also { it.toGlobal() } }
         val rnd = kotlin.random.Random(7)
         for (i in 0 until 10) {
             val angle = (i / 10f) * Math.PI.toFloat() * 2f + rnd.nextFloat() * 0.35f
@@ -213,22 +251,13 @@ class VillageEntity : Entity() {
             val x = kotlin.math.cos(angle) * dist
             val z = kotlin.math.sin(angle) * dist
 
-            val mountain = Entity()
+            val mountain = ModelEntity(meshes[i % 3], vertexColorMat)
             mountain.setName("mountain_$i")
-            val body = ModelEntity(MeshResource.createCone(h, r), rockMat)
-            body.setName("mountain_body")
-            body.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, h / 2f, 0f))
-            mountain.addChild(body)
-
-            val capH = h * 0.30f
-            val cap = ModelEntity(MeshResource.createCone(capH, r * 0.34f), snowMat)
-            cap.setName("mountain_snow")
-            cap.components[TransformComponent::class.java]!!
-                .setPosition(Vector3(0f, h - capH / 2f, 0f))
-            mountain.addChild(cap)
-
-            mountain.components[TransformComponent::class.java]!!
-                .setPosition(Vector3(x, TerrainMesh.SEA_LEVEL, z))
+            mountain.components[TransformComponent::class.java]!!.apply {
+                setPosition(Vector3(x, TerrainMesh.SEA_LEVEL, z))
+                setEulerAngles(EulerAngles(0f, rnd.nextFloat() * 360f, 0f))
+                setScaleVector(Vector3(r, h, r))
+            }
             addChild(mountain)
         }
     }

@@ -49,13 +49,16 @@ object TerrainMesh {
         floatArrayOf(9f, 45f),
     )
 
-    // 颜色
-    private val GRASS = Color4(0.55f, 0.80f, 0.38f, 1f)
-    private val GRASS_LIGHT = Color4(0.80f, 0.93f, 0.46f, 1f)
-    private val GRASS_DARK = Color4(0.32f, 0.58f, 0.33f, 1f)
-    private val MOUND_TOP = Color4(0.94f, 0.92f, 0.52f, 1f)
-    private val SAND = Color4(0.93f, 0.87f, 0.66f, 1f)
-    private val SEABED = Color4(0.42f, 0.62f, 0.62f, 1f)
+    // 颜色（吉卜力暖阳调色板：降低荧光感，草色分层更柔）
+    private val GRASS = Color4(0.50f, 0.74f, 0.35f, 1f)
+    private val GRASS_LIGHT = Color4(0.70f, 0.86f, 0.42f, 1f)
+    private val GRASS_DARK = Color4(0.31f, 0.52f, 0.30f, 1f)
+    private val MOUND_TOP = Color4(0.82f, 0.88f, 0.47f, 1f)
+    private val SAND = Color4(0.93f, 0.87f, 0.68f, 1f)
+    private val SAND_WET = Color4(0.74f, 0.68f, 0.52f, 1f)
+    private val ROCK = Color4(0.62f, 0.60f, 0.55f, 1f)
+    private val SEABED = Color4(0.40f, 0.60f, 0.62f, 1f)
+    private val SUN_DIR = Vector3(-0.38f, 0.80f, 0.46f) // 指向太阳（与场景主光一致）
 
     /** 主高度场 */
     fun height(x: Float, z: Float): Float {
@@ -143,10 +146,20 @@ object TerrainMesh {
                 .build()
         }
 
+        // 预计算高度（顶点色烘焙光影需要邻域高度，避免重复采样）
+        val heights = FloatArray(vertexCount)
+        for (iz in 0 until GRID) {
+            for (ix in 0 until GRID) {
+                val px = (ix.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
+                val pz = (iz.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
+                heights[iz * GRID + ix] = height(px, pz)
+            }
+        }
+
         return descriptor.use {
             RawMesh.create(it).use { rawMesh ->
-                check(rawMesh.populateVertexBuffer(0) { buffer -> writePositions(buffer) })
-                check(rawMesh.populateVertexBuffer(1) { buffer -> writeColors(buffer) })
+                check(rawMesh.populateVertexBuffer(0) { buffer -> writePositions(buffer, heights) })
+                check(rawMesh.populateVertexBuffer(1) { buffer -> writeColors(buffer, heights) })
                 check(rawMesh.populateIndicesBuffer(::writeIndices))
                 MeshResource.createWithRawMesh(rawMesh, "island_terrain")
             }
@@ -155,15 +168,28 @@ object TerrainMesh {
 
     // ---------------------------------------------------------------- 颜色
 
-    private fun colorAt(x: Float, z: Float, h: Float): Color4 {
+    /**
+     * 顶点色烘焙：坡面明暗（伪光照）+ 凹地 AO + 陡坡岩石 + 湿沙岸 + 细微色噪。
+     * 用 Unlit 材质渲染，但视觉上有体积感。
+     */
+    private fun colorAt(x: Float, z: Float, h: Float, nx: Float, ny: Float, nz: Float, noise: Float): Color4 {
         if (h < SEA_LEVEL + 0.25f) return SEABED
         // 沙滩只出现在岛边缘环带（内陆低地仍是草地）
-        if (h < SEA_LEVEL + 0.9f && kotlin.math.hypot(x, z) > 34f) return SAND
+        if (h < SEA_LEVEL + 0.9f && kotlin.math.hypot(x, z) > 34f) {
+            val wet = ((SEA_LEVEL + 0.9f - h) / 0.9f).coerceIn(0f, 1f)
+            return lerpColor(SAND, SAND_WET, wet * 0.6f)
+        }
 
         val big = 0.5f + 0.5f * sin(x * 0.11f + 2.0f) * sin(z * 0.10f + 1.2f)
         val small = 0.5f + 0.5f * sin(x * 0.35f + 0.7f) * sin(z * 0.30f + 2.9f)
         val t = 0.65f * big + 0.35f * small
         var c = lerpColor(GRASS, GRASS_LIGHT, t)
+
+        // 大尺度草甸阴影斑块（避免大片平涂）
+        val patch = 0.5f + 0.5f * sin(x * 0.052f + 1.7f) * sin(z * 0.043f + 0.6f)
+        if (patch < 0.38f) {
+            c = lerpColor(c, GRASS_DARK, ((0.38f - patch) / 0.38f) * 0.55f)
+        }
 
         if (h > 2.6f) {
             val top = ((h - 2.6f) / 1.6f).coerceAtMost(0.8f)
@@ -173,46 +199,87 @@ object TerrainMesh {
             val low = ((0.4f - h) / 1.1f).coerceAtMost(0.85f)
             c = lerpColor(c, GRASS_DARK, low)
         }
-        return c
+
+        // 陡坡 → 岩石色
+        val slope = 1f - ny
+        if (slope > 0.16f) {
+            val rockMix = ((slope - 0.16f) / 0.38f).coerceAtMost(0.8f)
+            c = lerpColor(c, ROCK, rockMix)
+        }
+
+        // 坡面明暗：主光方向 N·L
+        val ndotl = (nx * SUN_DIR.x + ny * SUN_DIR.y + nz * SUN_DIR.z).coerceIn(0f, 1f)
+        val lit = 0.55f + 0.45f * ndotl
+        // 凹地轻微 AO：邻域越低越暗
+        var r = c.red * lit
+        var g = c.green * lit
+        var b = c.blue * lit
+        // 受光面偏暖、背光面偏冷（吉卜力式色彩）
+        r *= 1f + 0.04f * ndotl
+        b *= 1f - 0.05f * ndotl + 0.03f * (1f - ndotl)
+        // 细微色噪，打散平涂感
+        r *= noise
+        g *= noise
+        b *= noise
+        return Color4(r.coerceIn(0f, 1f), g.coerceIn(0f, 1f), b.coerceIn(0f, 1f), 1f)
     }
 
     // ---------------------------------------------------------------- 缓冲
 
-    private fun gridPos(ix: Int, iz: Int): FloatArray {
-        val px = (ix.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
-        val pz = (iz.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
-        return floatArrayOf(px, height(px, pz), pz)
-    }
-
-    private fun writePositions(buffer: ByteBuffer): Boolean {
+    private fun writePositions(buffer: ByteBuffer, heights: FloatArray): Boolean {
         for (iz in 0 until GRID) {
             for (ix in 0 until GRID) {
                 val index = iz * GRID + ix
-                val p = gridPos(ix, iz)
+                val px = (ix.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
+                val pz = (iz.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
                 val offset = index * POS_STRIDE
-                buffer.putFloat(offset, p[0])
-                buffer.putFloat(offset + 4, p[1])
-                buffer.putFloat(offset + 8, p[2])
+                buffer.putFloat(offset, px)
+                buffer.putFloat(offset + 4, heights[index])
+                buffer.putFloat(offset + 8, pz)
             }
         }
         return true
     }
 
-    private fun writeColors(buffer: ByteBuffer): Boolean {
+    private fun writeColors(buffer: ByteBuffer, heights: FloatArray): Boolean {
+        val step = HALF * 2f / (GRID - 1)
         for (iz in 0 until GRID) {
             for (ix in 0 until GRID) {
                 val index = iz * GRID + ix
-                val p = gridPos(ix, iz)
-                val c = colorAt(p[0], p[2], p[1])
+                val px = (ix.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
+                val pz = (iz.toFloat() / (GRID - 1) - 0.5f) * HALF * 2f
+                val h = heights[index]
+
+                val hl = heights[iz * GRID + (ix - 1).coerceAtLeast(0)]
+                val hr = heights[iz * GRID + (ix + 1).coerceAtMost(GRID - 1)]
+                val ht = heights[(iz - 1).coerceAtLeast(0) * GRID + ix]
+                val hb = heights[(iz + 1).coerceAtMost(GRID - 1) * GRID + ix]
+                var nx = -(hr - hl) / (2f * step)
+                var ny = 1f
+                var nz = -(hb - ht) / (2f * step)
+                val len = kotlin.math.sqrt(nx * nx + ny * ny + nz * nz)
+                nx /= len
+                ny /= len
+                nz /= len
+
+                // 伪 AO：比四邻平均低 → 暗
+                val avg4 = (hl + hr + ht + hb) * 0.25f
+                val conc = (h - avg4) / step
+                val ao = (1f + conc * 0.10f).coerceIn(0.82f, 1.06f)
+
+                val n = 0.94f + 0.12f * fract(kotlin.math.sin(ix * 12.9898f + iz * 78.233f) * 43758.5453f)
+                val c = colorAt(px, pz, h, nx, ny, nz, n)
                 val offset = index * COLOR_STRIDE
-                buffer.putFloat(offset, c.red)
-                buffer.putFloat(offset + 4, c.green)
-                buffer.putFloat(offset + 8, c.blue)
+                buffer.putFloat(offset, (c.red * ao).coerceIn(0f, 1f))
+                buffer.putFloat(offset + 4, (c.green * ao).coerceIn(0f, 1f))
+                buffer.putFloat(offset + 8, (c.blue * ao).coerceIn(0f, 1f))
                 buffer.putFloat(offset + 12, c.alpha)
             }
         }
         return true
     }
+
+    private fun fract(v: Float): Float = v - kotlin.math.floor(v)
 
     private fun writeIndices(buffer: ByteBuffer): Boolean {
         var offset = 0
