@@ -2,6 +2,7 @@ package com.spatialfarm.game.platform
 
 import android.app.Application
 import com.spatialfarm.game.data.GameState
+import com.spatialfarm.game.data.TripoOverrides
 import com.pico.spatial.ui.foundation.dsl.launch
 import com.spatialfarm.game.mainApp
 import kotlinx.coroutines.MainScope
@@ -13,6 +14,7 @@ class SpatialApplication : Application() {
         super.onCreate()
         // 绑定存档并恢复进度（必须在场景构建前）
         GameState.init(this)
+        TripoOverrides.init(assets)
         launch(::mainApp)
 
         // 周期自动存档（3 秒）

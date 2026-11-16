@@ -54,10 +54,10 @@ object TerrainMesh {
     private const val COLOR_STRIDE = 4 * 4
 
     // 粉彩草色（加大对比，旷野之息式斑块）
-    private val GRASS = Color4(0.64f, 0.82f, 0.52f, 1f)
-    private val GRASS_LIGHT = Color4(0.84f, 0.94f, 0.58f, 1f)
-    private val GRASS_DARK = Color4(0.40f, 0.62f, 0.40f, 1f)
-    private val MOUND_TOP = Color4(0.93f, 0.93f, 0.62f, 1f)   // 丘顶阳光黄
+    private val GRASS = Color4(0.60f, 0.81f, 0.44f, 1f)
+    private val GRASS_LIGHT = Color4(0.83f, 0.94f, 0.50f, 1f)
+    private val GRASS_DARK = Color4(0.34f, 0.59f, 0.36f, 1f)
+    private val MOUND_TOP = Color4(0.95f, 0.93f, 0.55f, 1f)   // 丘顶阳光金
 
     /** 生成并返回草原地形网格。 */
     fun create(): MeshResource {

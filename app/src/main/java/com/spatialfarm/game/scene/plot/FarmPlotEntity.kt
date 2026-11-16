@@ -14,6 +14,7 @@ import com.pico.spatial.core.ecs.resource.UnlitMaterial
 import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
+import com.spatialfarm.game.data.TripoOverrides
 import com.spatialfarm.game.data.PlantDef
 import com.spatialfarm.game.scene.audio.Sfx
 import com.spatialfarm.game.scene.fx.Burst
@@ -282,9 +283,12 @@ class FarmPlotEntity(
         val p = plant ?: return
         val myGen = ++generation
         val mature = stage >= STAGES
+        val stageKey = if (mature) "crop" else (stage + 1).toString()
+        val itemId = "crop_${p.assetBase.lowercase()}_$stageKey"
         val uri =
-            if (mature) "models/crops/${p.assetBase}_Crop.glb"
-            else "models/crops/${p.assetBase}_${stage + 1}.glb"
+            TripoOverrides.uriFor(itemId)
+                ?: if (mature) "models/crops/${p.assetBase}_Crop.glb"
+                else "models/crops/${p.assetBase}_${stage + 1}.glb"
 
         scope.launch {
             val model = Entity.loadSuspend("asset://$uri")
@@ -294,7 +298,7 @@ class FarmPlotEntity(
             }
             plantRoot?.destroy(true)
             plantRoot = model
-            val s = cropScale(p)
+            val s = cropScale(p) * TripoOverrides.scaleFor(itemId)
             model.components[TransformComponent::class.java]?.apply {
                 setPosition(Vector3(0f, PLOT_T, 0f))
                 setScaleVector(Vector3(s, s, s))

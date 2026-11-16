@@ -14,6 +14,8 @@ import com.pico.spatial.core.ecs.resource.UnlitMaterial
 import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
+import com.spatialfarm.game.data.TripoOverrides
+import kotlinx.coroutines.launch
 
 /**
  * 家里的孩子（可点按帮忙）：
@@ -43,47 +45,29 @@ class ChildEntity(
     }
 
     private fun buildBody() {
-        val cloth = if (kind == ChildKind.DAUGHTER) {
-            Color4(0.95f, 0.70f, 0.75f, 1f) // 粉色
-        } else {
-            Color4(0.55f, 0.72f, 0.92f, 1f) // 蓝色
-        }
-        // 小身体
-        val body = ModelEntity(
-            MeshResource.createCapsule(0.42f, 0.15f),
-            UnlitMaterial.create().apply { setBaseColor(cloth) }
-        )
-        body.setName("child_body")
-        body.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.31f, 0f))
-        addChild(body)
-
-        // 头
-        val head = ModelEntity(
-            MeshResource.createSphere(SphereOption(0.12f)),
-            UnlitMaterial.create().apply { setBaseColor(Color4(0.99f, 0.87f, 0.74f, 1f)) }
-        )
-        head.setName("child_head")
-        head.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.66f, 0f))
-        addChild(head)
-
-        // 头发（女儿双丸子头 / 儿子小平头）
-        val hairMat = UnlitMaterial.create().apply { setBaseColor(Color4(0.35f, 0.25f, 0.18f, 1f)) }
-        if (kind == ChildKind.DAUGHTER) {
-            for (x in listOf(-0.1f, 0.1f)) {
-                val bun = ModelEntity(MeshResource.createSphere(SphereOption(0.055f)), hairMat)
-                bun.setName("bun_$x")
-                bun.components[TransformComponent::class.java]!!
-                    .setPosition(Vector3(x, 0.76f, 0f))
-                addChild(bun)
+        val itemId = if (kind == ChildKind.DAUGHTER) "child_flower" else "child_yong"
+        val defaultPath =
+            if (kind == ChildKind.DAUGHTER) "models/characters/Child_Girl_Casual.glb"
+            else "models/characters/Casual2.glb"
+        val modelPath = TripoOverrides.uriFor(itemId)?.removePrefix("asset://") ?: defaultPath
+        val baseScale = if (kind == ChildKind.DAUGHTER) 0.60f else 0.63f
+        val scale = baseScale * TripoOverrides.scaleFor(itemId)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            val model = Entity.loadSuspend("asset://$modelPath")
+            if (!valid) {
+                model.destroy(true)
+                return@launch
             }
-        } else {
-            val hair = ModelEntity(
-                MeshResource.createCylinder(0.06f, 0.115f),
-                hairMat
-            )
-            hair.setName("flat_hair")
-            hair.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.75f, 0f))
-            addChild(hair)
+            model.components[TransformComponent::class.java]?.apply {
+                setPosition(Vector3(0f, 0f, 0f))
+                setScaleVector(Vector3(scale, scale, scale))
+                setEulerAngles(
+                    com.pico.spatial.core.math.EulerAngles(
+                        0f, 180f + TripoOverrides.yawFor(itemId), 0f
+                    )
+                )
+            }
+            addChild(model)
         }
     }
 

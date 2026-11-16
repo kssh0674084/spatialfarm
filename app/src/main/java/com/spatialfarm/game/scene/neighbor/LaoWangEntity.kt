@@ -11,8 +11,10 @@ import com.pico.spatial.core.ecs.resource.PhysicsMaterialResource
 import com.pico.spatial.core.ecs.resource.ShapeResource
 import com.pico.spatial.core.ecs.resource.UnlitMaterial
 import com.pico.spatial.core.math.Color4
+import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
 import com.spatialfarm.game.data.GameState
+import com.spatialfarm.game.data.TripoOverrides
 import com.spatialfarm.game.scene.plot.FarmPlotEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,45 +72,25 @@ class LaoWangEntity(
     private fun buildBody() {
         val root = Entity()
         root.setName("lao_wang_body")
-
-        // 身体（棕色夹克）
-        val bodyModel = ModelEntity(
-            MeshResource.createCapsule(0.62f, 0.20f),
-            UnlitMaterial.create().apply { setBaseColor(Color4(0.55f, 0.42f, 0.30f, 1f)) }
-        )
-        bodyModel.setName("body")
-        bodyModel.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.45f, 0f))
-        root.addChild(bodyModel)
-
-        // 头（肤色球）
-        val head = ModelEntity(
-            MeshResource.createSphere(com.pico.spatial.core.ecs.resource.SphereOption(0.15f)),
-            UnlitMaterial.create().apply { setBaseColor(Color4(0.98f, 0.85f, 0.70f, 1f)) }
-        )
-        head.setName("head")
-        head.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 0.92f, 0f))
-        root.addChild(head)
-
-        // 草帽（帽檐 + 帽顶）
-        val brim = ModelEntity(
-            MeshResource.createCylinder(0.045f, 0.26f),
-            UnlitMaterial.create().apply { setBaseColor(Color4(0.93f, 0.82f, 0.55f, 1f)) }
-        )
-        brim.setName("hat_brim")
-        brim.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 1.04f, 0f))
-        root.addChild(brim)
-
-        val crown = ModelEntity(
-            MeshResource.createCylinder(0.10f, 0.13f),
-            UnlitMaterial.create().apply { setBaseColor(Color4(0.88f, 0.75f, 0.48f, 1f)) }
-        )
-        crown.setName("hat_crown")
-        crown.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 1.10f, 0f))
-        root.addChild(crown)
-
-        // 点击身体也能和他互动了解状态（小人本身不罚款，无交互需求）
         body = root
         addChild(root)
+        // 真实角色模型（Quaternius Farmer），异步加载
+        scope.launch {
+            val uri = TripoOverrides.uriFor("wang_lawang")
+                ?: "asset://models/characters/Farmer.glb"
+            val model = Entity.loadSuspend(uri)
+            if (!valid || !root.valid) {
+                model.destroy(true)
+                return@launch
+            }
+            model.components[TransformComponent::class.java]?.apply {
+                setPosition(Vector3(0f, 0f, 0f))
+                val sc = 0.95f * TripoOverrides.scaleFor("wang_lawang")
+                setScaleVector(Vector3(sc, sc, sc))
+                setEulerAngles(EulerAngles(0f, 180f + TripoOverrides.yawFor("wang_lawang"), 0f))
+            }
+            root.addChild(model)
+        }
     }
 
     // ---------------------------------------------------------------- 作息循环
