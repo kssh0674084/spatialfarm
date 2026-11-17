@@ -12,14 +12,56 @@ import com.pico.spatial.core.ecs.resource.PhysicsMaterialResource
 import com.pico.spatial.core.ecs.resource.ShapeResource
 import com.pico.spatial.core.ecs.resource.UnlitMaterial
 import com.pico.spatial.core.math.Color4
+import com.pico.spatial.core.math.EulerAngles
 import com.pico.spatial.core.math.Vector3
+import com.spatialfarm.game.data.TripoOverrides
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * 广场委托板（3D 可点按实体）：点按打开委托窗口。
+ *
+ * 优先使用参考图生成的 `bld_questboard` 模型；缺失时回退到几何体拼装。
  */
 class QuestBoardEntity : Entity() {
     init {
         setName("quest_board")
+
+        val override = TripoOverrides.uriFor("bld_questboard")
+        if (override != null) {
+            loadOverrideModel(override)
+        } else {
+            buildFallback()
+        }
+
+        components[CollisionComponent::class.java] =
+            CollisionComponent(
+                collisionShape = listOf(ShapeResource.createBox(Vector3(2.6f, 1.9f, 1.4f))),
+                physicsMaterial = PhysicsMaterialResource(),
+            )
+        components[InteractableComponent::class.java] = InteractableComponent()
+        components[HoverEffectComponent::class.java] = HoverEffectComponent()
+    }
+
+    private fun loadOverrideModel(uri: String) {
+        CoroutineScope(Dispatchers.Main).launch {
+            val model = runCatching { Entity.loadSuspend(uri) }.getOrNull() ?: return@launch
+            if (!valid) {
+                model.destroy(true)
+                return@launch
+            }
+            val s = TripoOverrides.scaleFor("bld_questboard")
+            model.components[TransformComponent::class.java]?.apply {
+                setPosition(Vector3(0f, TripoOverrides.offsetYFor("bld_questboard") * s, 0f))
+                setScaleVector(Vector3(s, s, s))
+                setEulerAngles(EulerAngles(0f, TripoOverrides.yawFor("bld_questboard"), 0f))
+            }
+            addChild(model)
+        }
+    }
+
+    private fun buildFallback() {
         val woodMat = UnlitMaterial.create().apply { setBaseColor(Color4(0.62f, 0.48f, 0.36f, 1f)) }
         val paperMat = UnlitMaterial.create().apply { setBaseColor(Color4(0.99f, 0.95f, 0.82f, 1f)) }
 
@@ -55,13 +97,5 @@ class QuestBoardEntity : Entity() {
         awning.setName("qb_awning_top")
         awning.components[TransformComponent::class.java]!!.setPosition(Vector3(0f, 1.5f, 0.1f))
         addChild(awning)
-
-        components[CollisionComponent::class.java] =
-            CollisionComponent(
-                collisionShape = listOf(ShapeResource.createBox(Vector3(1.35f, 1.7f, 0.4f))),
-                physicsMaterial = PhysicsMaterialResource(),
-            )
-        components[InteractableComponent::class.java] = InteractableComponent()
-        components[HoverEffectComponent::class.java] = HoverEffectComponent()
     }
 }

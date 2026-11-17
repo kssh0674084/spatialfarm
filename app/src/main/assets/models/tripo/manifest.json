@@ -48,9 +48,9 @@
     "offsetY": 0.2
   },
   "bld_house": {
-    "scale": 8.0,
+    "scale": 10.45,
     "yaw": 0,
-    "offsetY": 0.44
+    "offsetY": 0.27
   },
   "env_mountain": {
     "scale": 95.0,
@@ -86,5 +86,40 @@
     "scale": 2.0,
     "yaw": 0,
     "offsetY": 0.0
+  },
+  "bld_inn": {
+    "scale": 8.4,
+    "yaw": 0,
+    "offsetY": 0.39
+  },
+  "bld_workshop": {
+    "scale": 10.2,
+    "yaw": 0,
+    "offsetY": 0.28
+  },
+  "bld_watermill_dock": {
+    "scale": 3.6,
+    "yaw": 0,
+    "offsetY": 0.29
+  },
+  "env_windmill": {
+    "scale": 6.0,
+    "yaw": 0,
+    "offsetY": 0.46
+  },
+  "bld_market": {
+    "scale": 8.6,
+    "yaw": 0,
+    "offsetY": 0.28
+  },
+  "bld_questboard": {
+    "scale": 2.5,
+    "yaw": 20,
+    "offsetY": 0.24
+  },
+  "bld_dock": {
+    "scale": 3.5,
+    "yaw": 0,
+    "offsetY": 0.11
   }
 }

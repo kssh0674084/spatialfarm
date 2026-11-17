@@ -189,9 +189,9 @@ fun HomeStage() {
 
             place("plot_menu", Vector3(0f, -10f, 0f))
             // 店铺招牌（房子上方的功能提示）
-            place("sign_seed", Vector3(-2.6f, 2.75f, -6.2f))
-            place("sign_buy", Vector3(0f, 3.45f, -6.5f))
-            place("sign_tool", Vector3(2.8f, 3.0f, -6.2f))
+            place("sign_seed", Vector3(-5.0f, 2.9f, -8.2f))
+            place("sign_buy", Vector3(0f, -60f, -8.9f))
+            place("sign_tool", Vector3(0f, -60f, -8.2f))
 
             sceneHolder.menuEntity = attachments.entity(id = "plot_menu")
             sceneHolder.menuBtnEntity = attachments.entity(id = "menu_btn")

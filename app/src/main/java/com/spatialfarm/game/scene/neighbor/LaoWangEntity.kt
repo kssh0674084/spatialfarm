@@ -36,8 +36,8 @@ import kotlin.random.Random
  */
 class LaoWangEntity(
     private val plots: List<FarmPlotEntity>,
-    private val homePoint: Vector3 = Vector3(-5.2f, 0f, -5.6f),
-    private val farmPoint: Vector3 = Vector3(-3.4f, 0f, -3.7f),
+    private val homePoint: Vector3 = Vector3(-9.5f, 0f, -5.5f),
+    private val farmPoint: Vector3 = Vector3(-4.2f, 0f, -3.6f),
 ) : Entity() {
 
     /** 老王当前状态（玩家偷菜判定用） */

@@ -114,12 +114,12 @@ class VillageEntity : Entity() {
 
     private fun buildChildren() {
         val daughter = ChildEntity(ChildKind.DAUGHTER) { plots }
-        daughter.components[TransformComponent::class.java]!!.setPosition(Vector3(-3.2f, 0f, 1.7f))
+        daughter.components[TransformComponent::class.java]!!.setPosition(Vector3(-5.9f, 0f, 1.0f))
         addChild(daughter)
         children.add(daughter)
 
         val son = ChildEntity(ChildKind.SON) { plots }
-        son.components[TransformComponent::class.java]!!.setPosition(Vector3(-4.3f, 0f, 2.4f))
+        son.components[TransformComponent::class.java]!!.setPosition(Vector3(-5.2f, 0f, 1.8f))
         addChild(son)
         children.add(son)
     }
@@ -127,9 +127,9 @@ class VillageEntity : Entity() {
     // ---------------------------------------------------------------- 店铺交互点（点房子开店）
 
     private fun buildShopPoints() {
-        shopPoint(ShopKind.SEED, Vector3(-2.6f, 0f, -6.2f), Vector3(2.1f, 2.2f, 1.8f))
-        shopPoint(ShopKind.BUYER, Vector3(0f, 0f, -6.6f), Vector3(2.7f, 2.6f, 2.3f))
-        shopPoint(ShopKind.TOOL, Vector3(2.8f, 0f, -6.2f), Vector3(2.3f, 2.2f, 2.0f))
+        shopPoint(ShopKind.SEED, Vector3(-5.0f, 0f, -8.2f), Vector3(3.6f, 2.4f, 3.6f))
+        shopPoint(ShopKind.BUYER, Vector3(0f, 0f, -8.9f), Vector3(2.9f, 2.6f, 2.9f))
+        shopPoint(ShopKind.TOOL, Vector3(5.0f, 0f, -8.2f), Vector3(3.4f, 2.4f, 3.8f))
     }
 
     private fun shopPoint(kind: ShopKind, base: Vector3, size: Vector3) {
@@ -489,7 +489,7 @@ class VillageEntity : Entity() {
 
     private fun buildQuestBoard() {
         val board = QuestBoardEntity()
-        board.components[TransformComponent::class.java]!!.setPosition(Vector3(2.0f, 0f, -4.15f))
+        board.components[TransformComponent::class.java]!!.setPosition(Vector3(-3.3f, 0f, -4.7f))
         board.components[TransformComponent::class.java]!!.setEulerAngles(EulerAngles(0f, -158f, 0f))
         addChild(board)
     }
@@ -870,63 +870,54 @@ class VillageEntity : Entity() {
     // ---------------------------------------------------------------- 3D 模型加载
 
     private suspend fun loadModels() {
+        // 广场到两侧店铺的小路
+        buildTrail(
+            listOf(
+                floatArrayOf(0f, -6.3f), floatArrayOf(-2.5f, -6.6f), floatArrayOf(-4.4f, -6.8f),
+            )
+        )
+        buildTrail(
+            listOf(
+                floatArrayOf(0f, -6.3f), floatArrayOf(2.5f, -6.6f), floatArrayOf(4.4f, -6.8f),
+            )
+        )
+
         // ---- 店主 NPC（待机动画 + 可点击开店）----
         run {
-            fun shopkeeper(itemId: String, kind: ShopKind, x: Float, z: Float) {
-                val npc = ShopkeeperEntity(itemId, kind, yaw = -90f, scale = 1f)
+            fun shopkeeper(itemId: String, kind: ShopKind, x: Float, z: Float, yaw: Float) {
+                val npc = ShopkeeperEntity(itemId, kind, yaw = yaw, scale = 1f)
                 npc.components[TransformComponent::class.java]!!.setPosition(Vector3(x, 0f, z))
                 addChild(npc)
             }
-            shopkeeper("mei_yi", ShopKind.SEED, -2.6f, -5.25f)
-            shopkeeper("pang_shen", ShopKind.BUYER, 0f, -5.45f)
-            shopkeeper("chui_shu", ShopKind.TOOL, 2.8f, -5.25f)
+            shopkeeper("mei_yi", ShopKind.SEED, -5.0f, -6.5f, 135f)
+            shopkeeper("pang_shen", ShopKind.BUYER, 0f, -7.2f, 180f)
+            shopkeeper("chui_shu", ShopKind.TOOL, 5.0f, -6.5f, -135f)
         }
 
-        // ---- Tripo 新地标：水车小屋（磨坊水塘在西北侧，水轮浸入塘中，朝向进村小路）----
-        run {
-            val wx = -8.3f
-            val wz = 9.7f
-            val mill = loadOverrideOnly(
-                "bld_watermill",
-                Vector3(wx, TerrainMesh.height(wx, wz) + 0.02f, wz),
-                yaw = -135f,
-                scale = 1.0f,
-            )
-            if (mill != null) {
-                attachWaterWheel(mill)
-                // 石砌基座：补上房身与水下地面之间的空隙
-                val plinth = ModelEntity(
-                    MeshResource.createBox(BoxOption(Vector3(2.2f, 1.6f, 1.6f)).setName("mill_plinth")),
-                    mat("mill_plinth", Color4(0.50f, 0.47f, 0.43f, 1f)),
-                )
-                plinth.setName("mill_plinth")
-                plinth.components[TransformComponent::class.java]!!.apply {
-                    setPosition(Vector3(wx, TerrainMesh.height(wx, wz) - 0.75f, wz))
-                    setEulerAngles(EulerAngles(0f, -135f, 0f))
-                }
-                addChild(plinth)
-            }
-            // 水塘边点缀石头
-            val pondX = -9.40f
-            val pondZ = 8.60f
-            loadModelSmart(
-                "prop_rock", "models/nature/Rock_1.glb",
-                Vector3(pondX - 1.05f, TerrainMesh.height(pondX - 1.05f, pondZ + 0.5f), pondZ + 0.5f),
-                yaw = 20f, scale = 0.55f,
-            )
-            loadModelSmart(
-                "prop_rock", "models/nature/Rock_3.glb",
-                Vector3(pondX + 0.2f, TerrainMesh.height(pondX + 0.2f, pondZ - 1.05f), pondZ - 1.05f),
-                yaw = 140f, scale = 0.45f,
-            )
-        }
+        // ---- 海边木码头（参考图版）----
+        loadOverrideOnly(
+            "bld_dock",
+            Vector3(6.0f, -0.25f, 41.0f),
+            yaw = 180f,
+            scale = 1.0f,
+        )
 
-        // ---- Tripo 雪山（远景天际线主峰）----
+        // ---- 栈桥水车（参考图版）：湖边木栈道 + 水轮 + 小船 ----
+        loadOverrideOnly(
+            "bld_watermill_dock",
+            Vector3(-12.6f, -0.35f, 12.0f),
+            yaw = 35f,
+            scale = 1.0f,
+        )
+
+        // ---- 风车丘上的石塔风车（参考图版）----
         run {
+            val wx = 23.0f
+            val wz = -15.0f
             loadOverrideOnly(
-                "env_mountain",
-                Vector3(-95f, TerrainMesh.SEA_LEVEL, -185f),
-                yaw = 25f,
+                "env_windmill",
+                Vector3(wx, TerrainMesh.height(wx, wz) + 0.02f, wz),
+                yaw = 30f,
                 scale = 1.0f,
             )
         }
@@ -956,27 +947,28 @@ class VillageEntity : Entity() {
         }
 
         // ---- 主街店铺（北） ----
-        loadModelSmart("bld_market", "models/village/MarketStand_1.glb", Vector3(-2.6f, 0f, -6.2f), yaw = 180f, scale = 0.55f)   // 梅姨杂货摊
-        loadModelSmart("bld_inn", "models/village/Inn.glb", Vector3(0f, 0f, -6.6f), yaw = 180f, scale = 0.42f)                // 胖婶食堂
-        loadModelSmart("bld_workshop", "models/village/Blacksmith.glb", Vector3(2.8f, 0f, -6.2f), yaw = 180f, scale = 0.42f)       // 锤叔铁匠铺
+        loadModelSmart("bld_market", "models/village/MarketStand_1.glb", Vector3(-5.0f, 0f, -8.2f), yaw = 45f, scale = 0.55f)   // 梅姨种子铺
+        loadModelSmart("bld_inn", "models/village/Inn.glb", Vector3(0f, 0f, -8.9f), yaw = 0f, scale = 0.42f)                // 胖婶食堂
+        loadModelSmart("bld_workshop", "models/village/Blacksmith.glb", Vector3(5.0f, 0f, -8.2f), yaw = -45f, scale = 0.42f)       // 锤叔铁匠铺
 
         // ---- 玩家小屋（左后）----
-        loadModelSmart("bld_house", "models/village/House_1.glb", Vector3(-4.2f, 0f, -1.2f), yaw = 115f, scale = 0.40f)
+        loadModelSmart("bld_house", "models/village/House_1.glb", Vector3(-8.8f, 0f, 0.6f), yaw = 90f, scale = 0.40f)
         loadModelSmart("prop_barrel", "models/village/Barrel.glb", Vector3(-3.2f, 0f, -0.4f), scale = 0.6f)
         loadModelSmart("prop_crate", "models/village/Crate.glb", Vector3(-5.1f, 0f, -0.6f), scale = 0.6f)
 
         // ---- 中央广场 ----
-        loadModelSmart("bld_well", "models/village/Well.glb", Vector3(0f, 0f, -4.2f), scale = 0.6f)
-        loadModelSmart("prop_hay", "models/village/Hay.glb", Vector3(3.6f, 0f, -4.6f), scale = 0.5f)
-        loadModelSmart("prop_cart", "models/village/Cart.glb", Vector3(-1.9f, 0f, -4.9f), yaw = 70f, scale = 0.55f)
+        loadModelSmart("bld_well", "models/village/Well.glb", Vector3(0f, 0f, -4.7f), scale = 0.6f)
+        loadModelSmart("prop_hay", "models/village/Hay.glb", Vector3(4.5f, 0f, -5.0f), scale = 0.5f)
+        loadModelSmart("prop_cart", "models/village/Cart.glb", Vector3(-3.2f, 0f, -5.5f), yaw = 70f, scale = 0.55f)
 
         // ---- 石板小路：田垄 → 广场 → 主街 ----
-        loadModelSmart("prop_path_square", "models/village/Path_Square.glb", Vector3(0f, 0.02f, -3.5f), scale = 0.8f)
-        loadModelSmart("prop_path_straight", "models/village/Path_Straight.glb", Vector3(0f, 0.02f, -4.9f), scale = 0.8f)
-        loadModelSmart("prop_path_straight", "models/village/Path_Straight.glb", Vector3(0f, 0.02f, -5.6f), scale = 0.8f)
+        loadModelSmart("prop_path_square", "models/village/Path_Square.glb", Vector3(0f, 0.02f, -4.3f), scale = 0.8f)
+        loadModelSmart("prop_path_straight", "models/village/Path_Straight.glb", Vector3(0f, 0.02f, -5.1f), scale = 0.8f)
+        loadModelSmart("prop_path_straight", "models/village/Path_Straight.glb", Vector3(0f, 0.02f, -5.9f), scale = 0.8f)
+        loadModelSmart("prop_path_straight", "models/village/Path_Straight.glb", Vector3(0f, 0.02f, -6.7f), scale = 0.8f)
 
         // ---- 远处风车（地标）----
-        loadModelSmart("bld_mill", "models/village/Mill.glb", Vector3(6.8f, 0f, -7.8f), yaw = -30f, scale = 0.5f)
+        loadModelSmart("bld_mill", "models/village/Mill.glb", Vector3(11.2f, 0f, -7.4f), yaw = -30f, scale = 0.5f)
 
         // ---- 田垄简易围栏（低矮木栏，几何体拼装更整齐） ----
         buildPlotFence()
@@ -1013,14 +1005,14 @@ class VillageEntity : Entity() {
         loadModelSmart("prop_tree_pine", "models/nature/PineTree_3.glb", Vector3(5.1f, 0f, -9.0f), scale = 1.2f)
 
         // ---- 边缘树林与灌木（环绕氛围） ----
-        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_1.glb", Vector3(-6.4f, 0f, -5.4f), scale = 1.15f)
-        loadSwaySmart("prop_tree_a", "models/nature/CommonTree_3.glb", Vector3(-6.9f, 0f, -2.6f), scale = 1.0f)
-        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_2.glb", Vector3(-6.2f, 0f, 0.8f), scale = 1.25f)
-        loadSwaySmart("prop_tree_a", "models/nature/CommonTree_4.glb", Vector3(5.9f, 0f, -0.6f), scale = 1.1f)
-        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_5.glb", Vector3(6.6f, 0f, -4.8f), scale = 1.0f)
-        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_1.glb", Vector3(-3.4f, 0f, -8.2f), scale = 1.1f)
-        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_2.glb", Vector3(3.9f, 0f, -8.4f), scale = 1.2f)
-        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_3.glb", Vector3(-0.8f, 0f, -8.8f), scale = 1.0f)
+        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_1.glb", Vector3(-11.6f, 0f, -3.8f), scale = 1.15f)
+        loadSwaySmart("prop_tree_a", "models/nature/CommonTree_3.glb", Vector3(-12.0f, 0f, -0.6f), scale = 1.0f)
+        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_2.glb", Vector3(-6.2f, 0f, 4.8f), scale = 1.25f)
+        loadSwaySmart("prop_tree_a", "models/nature/CommonTree_4.glb", Vector3(9.6f, 0f, 1.6f), scale = 1.1f)
+        loadSwaySmart("prop_tree_b", "models/nature/CommonTree_5.glb", Vector3(9.6f, 0f, -5.4f), scale = 1.0f)
+        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_1.glb", Vector3(-2.6f, 0f, -13.6f), scale = 1.1f)
+        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_2.glb", Vector3(2.0f, 0f, -14.0f), scale = 1.2f)
+        loadSwaySmart("prop_tree_pine", "models/nature/PineTree_3.glb", Vector3(7.4f, 0f, -13.4f), scale = 1.0f)
         loadModelSmart("prop_bush", "models/nature/Bush_1.glb", Vector3(-2.6f, 0f, 1.0f))
         loadModelSmart("prop_bush", "models/nature/Bush_2.glb", Vector3(2.8f, 0f, 0.6f))
         loadModelSmart("prop_rock", "models/nature/Rock_1.glb", Vector3(4.6f, 0f, -5.8f))
